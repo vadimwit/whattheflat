@@ -22,9 +22,6 @@ export default function App() {
   // ── Listening state ──────────────────────────────────────────────────────
   const [isListening, setIsListening] = useState(false)
 
-  // ── App mode ─────────────────────────────────────────────────────────────
-  const [appMode, setAppMode] = useState('beginner')   // 'beginner' | 'advanced'
-
   // ── Key: auto-detected + optional lock ───────────────────────────────────
   const [keyInfo, setKeyInfo]     = useState(null)     // auto-detected
   const [lockedKey, setLockedKey] = useState(null)     // { root, mode } or null
@@ -33,9 +30,6 @@ export default function App() {
 
   // Effective key used by all components
   const effectiveKey = lockedKey ?? keyInfo
-  // Beginner + locked key = only match the 7 diatonic chords (simpler, fewer false positives)
-  // Advanced + locked key = allow borrowed/chromatic chords like D7 in Am
-  const isStrictMode = appMode === 'beginner' && lockedKey !== null
 
   // ── Chord state ───────────────────────────────────────────────────────────
   const [chordHistory, setChordHistory]               = useState([])
@@ -52,14 +46,22 @@ export default function App() {
     Array.from({ length: CHROMA_SMOOTH }, () => new Float32Array(12))
   )
   const chromaIdxRef    = useRef(0)
-  const chordVotesRef   = useRef([])
+  const chordVotesRef        = useRef([])
+  const progressionVoteRef   = useRef(null)   // stabilise loop display
 
   // Keep ref in sync
   useEffect(() => { effectiveKeyRef.current = effectiveKey }, [effectiveKey])
 
-  // ── Detect progression whenever chord history changes ─────────────────────
+  // ── Detect progression — require 2 consecutive identical results to commit ─
   useEffect(() => {
-    setDetectedProgression(detectRepeatingProgression(chordHistory))
+    const detected = detectRepeatingProgression(chordHistory)
+    if (!detected) return
+    const key = detected.join(',')
+    if (progressionVoteRef.current === key) {
+      setDetectedProgression(detected)
+    } else {
+      progressionVoteRef.current = key
+    }
   }, [chordHistory])
 
   // ── Key lock handlers ─────────────────────────────────────────────────────
@@ -68,8 +70,6 @@ export default function App() {
     setLockedKey(info)
     effectiveKeyRef.current = info
     chordVotesRef.current = []
-    setChordHistory([])
-    setDetectedProgression(null)
   }
 
   function quickLock({ root, mode, confidence }) {
@@ -77,8 +77,6 @@ export default function App() {
     setLockedKey(info)
     effectiveKeyRef.current = info
     chordVotesRef.current = []
-    setChordHistory([])
-    setDetectedProgression(null)
   }
 
   function removeLock() {
@@ -136,7 +134,7 @@ export default function App() {
     for (const frame of ring) for (let i = 0; i < 12; i++) avg[i] += frame[i]
     for (let i = 0; i < 12; i++) avg[i] /= CHROMA_SMOOTH
 
-    const chord = matchChordFromChroma(avg, key, bassPC, isStrictMode)
+    const chord = matchChordFromChroma(avg, key, bassPC, false)
     if (!chord) {
       // Ambiguous moment (transition, silence) — reset streak, history is untouched
       chordVotesRef.current = []
@@ -184,21 +182,6 @@ export default function App() {
 
       {/* ── Controls bar ── */}
       <div className="mb-4 flex flex-wrap gap-3 items-center p-3 bg-panel border border-border rounded-xl">
-        {/* Mode toggle */}
-        <div className="flex bg-surface border border-border rounded-full p-0.5 text-sm">
-          {['beginner', 'advanced'].map(m => (
-            <button
-              key={m}
-              onClick={() => setAppMode(m)}
-              className={`px-4 py-1 rounded-full capitalize transition-all ${
-                appMode === m ? 'bg-accent text-white' : 'text-gray-400 hover:text-gray-200'
-              }`}
-            >
-              {m}
-            </button>
-          ))}
-        </div>
-
         {/* Key lock */}
         {lockedKey ? (
           <div className="flex items-center gap-2">
@@ -276,7 +259,7 @@ export default function App() {
           <Fretboard
             keyInfo={effectiveKey}
             currentChord={currentChord}
-            pentatonicOnly={appMode === 'beginner'}
+            pentatonicOnly={false}
           />
         </div>
         <div className="md:col-span-2">
