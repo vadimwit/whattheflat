@@ -44,7 +44,7 @@ function computeChroma(freqData, sampleRate, fftSize) {
 
   for (let bin = 2; bin < N; bin++) {
     const freq = bin * binHz
-    if (freq < 80 || freq > 6000) continue
+    if (freq < 80 || freq > 2000) continue
     const db = freqData[bin]
     if (db < NOISE_FLOOR) continue
 

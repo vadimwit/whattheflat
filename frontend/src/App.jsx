@@ -15,8 +15,8 @@ const KEY_VOTE_WINDOW    = 12
 const KEY_VOTE_THRESHOLD = 9   // out of 12 — very stable
 
 // Chord detection tuning
-const CHROMA_SMOOTH        = 8    // frames to average (~130ms at 60fps)
-const CHORD_VOTE_THRESHOLD = 3    // consecutive agreements before commit
+const CHROMA_SMOOTH        = 12   // frames to average (~200ms at 60fps)
+const CHORD_VOTE_THRESHOLD = 4    // consecutive identical detections required
 
 export default function App() {
   // ── Listening state ──────────────────────────────────────────────────────
@@ -33,7 +33,8 @@ export default function App() {
 
   // Effective key used by all components
   const effectiveKey = lockedKey ?? keyInfo
-  const isStrictMode = appMode === 'beginner' && lockedKey !== null
+  // Locked key = only match diatonic chords regardless of mode — far fewer candidates
+  const isStrictMode = lockedKey !== null
 
   // ── Chord state ───────────────────────────────────────────────────────────
   const [chordHistory, setChordHistory]             = useState([])
@@ -122,17 +123,19 @@ export default function App() {
     for (let i = 0; i < 12; i++) avg[i] /= CHROMA_SMOOTH
 
     const chord = matchChordFromChroma(avg, key, bassPC, isStrictMode)
-    if (!chord) return
+    if (!chord) {
+      // Ambiguous moment (transition, silence) — reset streak, history is untouched
+      chordVotesRef.current = []
+      return
+    }
 
     const votes = chordVotesRef.current
     votes.push(chord)
-    if (votes.length > CHORD_VOTE_THRESHOLD * 2) votes.shift()
+    if (votes.length > CHORD_VOTE_THRESHOLD) votes.shift()
 
-    const counts = {}
-    for (const v of votes) counts[v] = (counts[v] || 0) + 1
-    const [winner, winCount] = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]
-
-    if (winCount >= CHORD_VOTE_THRESHOLD) {
+    // All last N detections must agree — one wrong reading resets the streak
+    if (votes.length >= CHORD_VOTE_THRESHOLD && votes.every(v => v === votes[0])) {
+      const winner = votes[0]
       setChordHistory(prev => {
         if (prev[prev.length - 1] === winner) return prev
         return [...prev.slice(-30), winner]

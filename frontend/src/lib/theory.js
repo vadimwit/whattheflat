@@ -187,6 +187,7 @@ export function matchChordFromChroma(chroma, keyInfo, bassPC = null, strictDiato
     CHORD_TYPES.sus4,
   ]
   let best = { name: null, score: -Infinity }
+  let secondScore = -Infinity
 
   for (let r = 0; r < 12; r++) {
     for (const type of matchTypes) {
@@ -210,15 +211,21 @@ export function matchChordFromChroma(chroma, keyInfo, bassPC = null, strictDiato
 
       const coverageScore = inEnergy / (inEnergy + outEnergy * 0.5)
       // Bass note matching chord root is a strong harmonic signal
-      const bassBonus     = (bassPC !== null && r === bassPC) ? 0.35 : 0
+      const bassBonus     = (bassPC !== null && r === bassPC) ? 0.15 : 0
       const diatonicBonus = diatonic.has(chordName) ? 0.15 : 0
 
       const finalScore = coverageScore + bassBonus + diatonicBonus
-      if (finalScore > best.score) best = { name: chordName, score: finalScore }
+      if (finalScore > best.score) {
+        secondScore = best.score
+        best = { name: chordName, score: finalScore }
+      } else if (finalScore > secondScore) {
+        secondScore = finalScore
+      }
     }
   }
 
-  return best.score > 0.42 ? best.name : null
+  // Require a clear winner — if two chords score too close it's a transition/ambiguity
+  return (best.score > 0.42 && best.score - secondScore > 0.08) ? best.name : null
 }
 
 // ─── Roman numeral notation ───────────────────────────────────────────────────
