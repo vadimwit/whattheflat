@@ -1,17 +1,11 @@
-# Python
-__pycache__/
-*.py[oc]
-build/
+# Dependencies
+node_modules/
+frontend/node_modules/
+
+# Build output
 dist/
-wheels/
-*.egg-info
-.venv/
-.python-version
+build/
 
 # Env
 .env
 debug.log
-
-# Frontend
-frontend/node_modules/
-frontend/dist/

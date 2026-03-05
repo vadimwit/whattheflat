@@ -6,6 +6,7 @@ import ChordDisplay from './components/ChordDisplay'
 import SafeNotes from './components/SafeNotes'
 import Fretboard from './components/Fretboard'
 import ProgressionSuggestions from './components/ProgressionSuggestions'
+import Tuner from './components/Tuner'
 import { NOTES, detectKey, detectTopKeys, matchChordFromChroma, detectRepeatingProgression } from './lib/theory'
 
 // Key detection tuning
@@ -277,6 +278,9 @@ export default function App() {
             currentChord={currentChord}
             pentatonicOnly={appMode === 'beginner'}
           />
+        </div>
+        <div className="md:col-span-2">
+          <Tuner />
         </div>
       </div>
     </div>
