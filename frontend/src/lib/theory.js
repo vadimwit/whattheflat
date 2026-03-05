@@ -177,12 +177,19 @@ export function matchChordFromChroma(chroma, keyInfo, bassPC = null, strictDiato
 
   const diatonic = new Set(getChordsInKey(keyInfo.root, keyInfo.mode))
 
-  // Only match triads — more reliable for live guitar than extended chords
-  const triadTypes = [CHORD_TYPES.maj, CHORD_TYPES.min, CHORD_TYPES.dim]
+  // Match triads + dominant 7ths (blues/rock/band) + sus chords (rock guitar)
+  const matchTypes = [
+    CHORD_TYPES.maj,
+    CHORD_TYPES.min,
+    CHORD_TYPES.dom7,
+    CHORD_TYPES.min7,
+    CHORD_TYPES.dim,
+    CHORD_TYPES.sus4,
+  ]
   let best = { name: null, score: -Infinity }
 
   for (let r = 0; r < 12; r++) {
-    for (const type of triadTypes) {
+    for (const type of matchTypes) {
       const tones = new Set(type.intervals.map(i => (r + i) % 12))
       const chordName = noteName(r) + type.suffix
 
@@ -190,23 +197,28 @@ export function matchChordFromChroma(chroma, keyInfo, bassPC = null, strictDiato
 
       let inEnergy = 0, outEnergy = 0
       for (let pc = 0; pc < 12; pc++) {
-        if (tones.has(pc)) inEnergy += chroma[pc]
-        else outEnergy += chroma[pc]
+        if (pc === r) {
+          // Root note is the strongest identity signal — weight it double
+          inEnergy += chroma[pc] * 2
+        } else if (tones.has(pc)) {
+          inEnergy += chroma[pc]
+        } else {
+          outEnergy += chroma[pc]
+        }
       }
       if (inEnergy + outEnergy < 0.05) continue
 
-      // Core score: fraction of energy on chord tones, penalise noise
-      const coverageScore = inEnergy / (inEnergy + outEnergy * 0.6)
-      // Bass note matching the chord root is a strong harmonic signal
-      const bassBonus   = (bassPC !== null && r === bassPC) ? 0.4 : 0
-      const diatonicBonus = diatonic.has(chordName) ? 0.2 : 0
+      const coverageScore = inEnergy / (inEnergy + outEnergy * 0.5)
+      // Bass note matching chord root is a strong harmonic signal
+      const bassBonus     = (bassPC !== null && r === bassPC) ? 0.35 : 0
+      const diatonicBonus = diatonic.has(chordName) ? 0.15 : 0
 
       const finalScore = coverageScore + bassBonus + diatonicBonus
       if (finalScore > best.score) best = { name: chordName, score: finalScore }
     }
   }
 
-  return best.score > 0.45 ? best.name : null
+  return best.score > 0.42 ? best.name : null
 }
 
 // ─── Roman numeral notation ───────────────────────────────────────────────────

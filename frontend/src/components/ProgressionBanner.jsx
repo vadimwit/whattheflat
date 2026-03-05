@@ -1,49 +1,38 @@
 import { useRef, useEffect } from 'react'
 import { toRomanNumeral } from '../lib/theory'
 
-// Sizes for the chord trail (oldest → current)
-const TRAIL_SIZES = [
-  'text-lg opacity-20',
-  'text-xl opacity-30',
-  'text-2xl opacity-45',
-  'text-3xl opacity-60',
-  'text-4xl opacity-80',
-]
-const CURRENT_SIZE = 'text-7xl opacity-100'
+const HISTORY_SHOWN = 8   // ~2 bars at 4 chords/bar
 
 function findLoopPosition(chordHistory, progression) {
   if (!progression?.length || !chordHistory.length) return -1
-  const len = progression.length
-  // Walk backwards through the progression to find where current chord sits
-  for (let p = len - 1; p >= 0; p--) {
-    if (progression[p] !== chordHistory[chordHistory.length - 1]) continue
+  const last = chordHistory[chordHistory.length - 1]
+  for (let p = progression.length - 1; p >= 0; p--) {
+    if (progression[p] !== last) continue
     let match = true
     for (let i = 1; i < Math.min(p + 1, chordHistory.length); i++) {
-      if (progression[p - i] !== chordHistory[chordHistory.length - 1 - i]) {
-        match = false; break
-      }
+      if (progression[p - i] !== chordHistory[chordHistory.length - 1 - i]) { match = false; break }
     }
     if (match) return p
   }
-  return progression.indexOf(chordHistory[chordHistory.length - 1])
+  return progression.indexOf(last)
 }
 
 export default function ProgressionBanner({ chordHistory, keyInfo, detectedProgression }) {
   const { root, mode } = keyInfo ?? {}
 
-  // Show up to 5 previous chords + current
-  const trail   = chordHistory.slice(-6, -1)  // up to 5 previous
-  const current = chordHistory[chordHistory.length - 1]
+  // Newest chord is the last entry; we show the most recent HISTORY_SHOWN
+  const visible = chordHistory.slice(-HISTORY_SHOWN)
+  const current = visible[visible.length - 1]
 
-  // Flash the current chord when it changes
+  // Animate the current chord slot when it changes
   const currentRef = useRef(null)
   const prevChord  = useRef(null)
   useEffect(() => {
     if (current && current !== prevChord.current && currentRef.current) {
       currentRef.current.animate(
-        [{ opacity: 0, transform: 'translateY(8px) scale(0.9)' },
-         { opacity: 1, transform: 'translateY(0)   scale(1)' }],
-        { duration: 220, easing: 'ease-out', fill: 'forwards' }
+        [{ opacity: 0, transform: 'scale(0.85)' },
+         { opacity: 1, transform: 'scale(1)' }],
+        { duration: 200, easing: 'ease-out', fill: 'forwards' }
       )
       prevChord.current = current
     }
@@ -53,49 +42,55 @@ export default function ProgressionBanner({ chordHistory, keyInfo, detectedProgr
 
   if (!chordHistory.length) {
     return (
-      <div className="bg-panel border border-border rounded-2xl p-6 mb-4 flex items-center justify-center h-36">
-        <p className="text-gray-600 text-lg">Start listening to detect chords…</p>
+      <div className="bg-panel border border-border rounded-2xl p-5 mb-4 flex items-center justify-center h-28">
+        <p className="text-gray-600">Start listening to detect chords…</p>
       </div>
     )
   }
 
   return (
-    <div className="bg-panel border border-border rounded-2xl p-6 mb-4">
-      {/* ── Chord trail ── */}
-      <div className="flex items-end gap-3 overflow-x-auto pb-1 min-h-[96px]">
-        {trail.map((chord, i) => {
-          const sizeClass = TRAIL_SIZES[Math.max(0, i - (trail.length - TRAIL_SIZES.length))]
-          const rn = root ? toRomanNumeral(chord, root, mode) : ''
+    <div className="bg-panel border border-border rounded-2xl p-5 mb-4">
+
+      {/* ── Chord history strip: all HISTORY_SHOWN chords at consistent size ── */}
+      <div className="flex items-stretch gap-1 overflow-x-auto pb-1">
+        {visible.map((chord, i) => {
+          const isCurrent   = i === visible.length - 1
+          const age         = visible.length - 1 - i          // 0 = current, higher = older
+          const opacity     = Math.max(0.2, 1 - age * 0.1)    // fade but stay readable
+          const rn          = root ? toRomanNumeral(chord, root, mode) : ''
+
           return (
-            <div key={`${chord}-${i}`} className={`flex flex-col items-center shrink-0 transition-all duration-300 ${sizeClass}`}>
-              <span className="font-bold text-gray-300 leading-none">{chord}</span>
-              <span className="text-xs text-gray-600 mt-1">{rn}</span>
+            <div
+              key={i}
+              ref={isCurrent ? currentRef : null}
+              style={{ opacity }}
+              className={`
+                flex flex-col items-center justify-end shrink-0 px-3 py-2 rounded-xl
+                transition-colors duration-200
+                ${isCurrent
+                  ? 'bg-accent/10 border border-accent/40 ring-1 ring-accent/20'
+                  : 'border border-transparent'}
+              `}
+            >
+              <span className={`font-black leading-none tracking-tight ${
+                isCurrent ? 'text-5xl text-accent' : 'text-3xl text-gray-200'
+              }`}>
+                {chord}
+              </span>
+              <span className={`text-xs font-semibold mt-1 ${
+                isCurrent ? 'text-amber-400' : 'text-gray-500'
+              }`}>
+                {rn || '\u00A0'}
+              </span>
             </div>
           )
         })}
-
-        {/* Arrow between trail and current */}
-        {trail.length > 0 && (
-          <span className="text-gray-600 text-2xl mb-2 shrink-0">›</span>
-        )}
-
-        {/* Current chord — BIG */}
-        {current && (
-          <div ref={currentRef} className={`flex flex-col items-center shrink-0 ${CURRENT_SIZE}`}>
-            <span className="font-black text-accent leading-none tracking-tight">{current}</span>
-            <span className="text-base text-amber-400 mt-1 font-semibold">
-              {root ? toRomanNumeral(current, root, mode) : ''}
-            </span>
-          </div>
-        )}
       </div>
 
       {/* ── Detected loop ── */}
       {detectedProgression && (
-        <div className="mt-5 pt-4 border-t border-border">
-          <p className="text-xs text-gray-500 uppercase tracking-widest mb-3">
-            ♻ Detected loop
-          </p>
+        <div className="mt-4 pt-3 border-t border-border">
+          <p className="text-xs text-gray-500 uppercase tracking-widest mb-2">♻ Detected loop</p>
           <div className="flex gap-2 flex-wrap">
             {detectedProgression.map((chord, i) => {
               const isActive = i === loopPos
@@ -105,7 +100,7 @@ export default function ProgressionBanner({ chordHistory, keyInfo, detectedProgr
                   key={i}
                   className={`flex flex-col items-center px-4 py-2 rounded-xl border transition-all duration-200 ${
                     isActive
-                      ? 'bg-accent/20 border-accent shadow-[0_0_12px_rgba(168,85,247,0.4)]'
+                      ? 'bg-accent/20 border-accent shadow-[0_0_14px_rgba(168,85,247,0.35)]'
                       : 'bg-border border-border'
                   }`}
                 >
@@ -118,9 +113,7 @@ export default function ProgressionBanner({ chordHistory, keyInfo, detectedProgr
                 </div>
               )
             })}
-            <div className="flex items-center text-gray-600 text-sm pl-1">
-              → loop
-            </div>
+            <span className="self-center text-gray-600 text-sm pl-1">→ loop</span>
           </div>
         </div>
       )}

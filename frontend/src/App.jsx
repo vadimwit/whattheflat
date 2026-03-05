@@ -15,8 +15,8 @@ const KEY_VOTE_WINDOW    = 12
 const KEY_VOTE_THRESHOLD = 9   // out of 12 — very stable
 
 // Chord detection tuning
-const CHROMA_SMOOTH        = 16   // frames to average (~250ms at 60fps)
-const CHORD_VOTE_THRESHOLD = 5    // consecutive agreements before commit
+const CHROMA_SMOOTH        = 8    // frames to average (~130ms at 60fps)
+const CHORD_VOTE_THRESHOLD = 3    // consecutive agreements before commit
 
 export default function App() {
   // ── Listening state ──────────────────────────────────────────────────────
@@ -97,10 +97,9 @@ export default function App() {
         if (prev?.root === root && prev?.mode === mode) {
           return { root, mode, confidence: result.confidence }
         }
-        // Key changed — clear chord history only if not locked
+        // Key changed — reset chord votes but keep history visible
         if (!lockedKey) {
           chordVotesRef.current = []
-          setChordHistory([])
         }
         return { root, mode, confidence: result.confidence }
       })
