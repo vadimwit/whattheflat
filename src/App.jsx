@@ -153,7 +153,7 @@ export default function App() {
         return [...prev.slice(-30), winner]
       })
     }
-  }, [isStrictMode])
+  }, [])
 
   const currentChord = chordHistory[chordHistory.length - 1]
 
