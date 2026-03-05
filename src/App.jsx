@@ -7,6 +7,7 @@ import SafeNotes from './components/SafeNotes'
 import Fretboard from './components/Fretboard'
 import ProgressionSuggestions from './components/ProgressionSuggestions'
 import Tuner from './components/Tuner'
+import Piano from './components/Piano'
 import { NOTES, detectKey, detectTopKeys, matchChordFromChroma, detectRepeatingProgression } from './lib/theory'
 
 // Key detection tuning
@@ -21,6 +22,9 @@ const CHORD_VOTE_THRESHOLD = 3    // consecutive identical detections required
 export default function App() {
   // ── Listening state ──────────────────────────────────────────────────────
   const [isListening, setIsListening] = useState(false)
+
+  // ── Instrument view ───────────────────────────────────────────────────────
+  const [instrument, setInstrument] = useState('guitar')  // 'guitar' | 'piano'
 
   // ── Key: auto-detected + optional lock ───────────────────────────────────
   const [keyInfo, setKeyInfo]     = useState(null)     // auto-detected
@@ -182,6 +186,21 @@ export default function App() {
 
       {/* ── Controls bar ── */}
       <div className="mb-4 flex flex-wrap gap-3 items-center p-3 bg-panel border border-border rounded-xl">
+        {/* Instrument toggle */}
+        <div className="flex bg-surface border border-border rounded-full p-0.5 text-sm">
+          {['guitar', 'piano'].map(v => (
+            <button
+              key={v}
+              onClick={() => setInstrument(v)}
+              className={`px-4 py-1 rounded-full capitalize transition-all ${
+                instrument === v ? 'bg-accent text-white' : 'text-gray-400 hover:text-gray-200'
+              }`}
+            >
+              {v}
+            </button>
+          ))}
+        </div>
+
         {/* Key lock */}
         {lockedKey ? (
           <div className="flex items-center gap-2">
@@ -256,11 +275,15 @@ export default function App() {
         <SafeNotes keyInfo={effectiveKey} currentChord={currentChord} />
         <ProgressionSuggestions keyInfo={effectiveKey} />
         <div className="md:col-span-2">
-          <Fretboard
-            keyInfo={effectiveKey}
-            currentChord={currentChord}
-            pentatonicOnly={false}
-          />
+          {instrument === 'guitar' ? (
+            <Fretboard
+              keyInfo={effectiveKey}
+              currentChord={currentChord}
+              pentatonicOnly={false}
+            />
+          ) : (
+            <Piano keyInfo={effectiveKey} currentChord={currentChord} />
+          )}
         </div>
         <div className="md:col-span-2">
           <Tuner />
