@@ -8,12 +8,13 @@ import Fretboard from './components/Fretboard'
 import ProgressionSuggestions from './components/ProgressionSuggestions'
 import Tuner from './components/Tuner'
 import Piano from './components/Piano'
-import { NOTES, detectKey, detectTopKeys, matchChordFromChroma, detectRepeatingProgression } from './lib/theory'
+import { NOTES, detectKey, detectTopKeys, matchChordFromChroma, detectRepeatingProgression, getChordTones } from './lib/theory'
 
 // Key detection tuning
-const NOTE_HISTORY_SIZE  = 80
+const NOTE_HISTORY_SIZE  = 160   // larger = chord boosts dominate over melody runs
 const KEY_VOTE_WINDOW    = 12
-const KEY_VOTE_THRESHOLD = 9   // out of 12 — very stable
+const KEY_VOTE_THRESHOLD = 9     // out of 12
+const CHORD_NOTE_BOOST   = 3     // confirmed chord tones injected N× into note history
 
 // Chord detection tuning
 const CHROMA_SMOOTH        = 12   // frames to average (~200ms at 60fps)
@@ -52,6 +53,7 @@ export default function App() {
   const chromaIdxRef    = useRef(0)
   const chordVotesRef        = useRef([])
   const progressionVoteRef   = useRef(null)   // stabilise loop display
+  const pendingKeyRef        = useRef(null)   // proposed key change — require 2 consecutive wins
 
   // Keep ref in sync
   useEffect(() => { effectiveKeyRef.current = effectiveKey }, [effectiveKey])
@@ -67,6 +69,23 @@ export default function App() {
       progressionVoteRef.current = key
     }
   }, [chordHistory])
+
+  // ── New song — full reset ─────────────────────────────────────────────────
+  function newSong() {
+    noteHistoryRef.current   = []
+    keyVotesRef.current      = []
+    chordVotesRef.current    = []
+    progressionVoteRef.current = null
+    pendingKeyRef.current    = null
+    chromaIdxRef.current     = 0
+    chromaRingRef.current    = Array.from({ length: CHROMA_SMOOTH }, () => new Float32Array(12))
+    setKeyInfo(null)
+    setLockedKey(null)
+    effectiveKeyRef.current  = null
+    setChordHistory([])
+    setDetectedProgression(null)
+    setTopKeyCandidates([])
+  }
 
   // ── Key lock handlers ─────────────────────────────────────────────────────
   function applyLock() {
@@ -110,15 +129,26 @@ export default function App() {
 
     if (count >= KEY_VOTE_THRESHOLD) {
       const [root, mode] = winner.split('_')
+      const candidateKey = `${root}_${mode}`
+
       setKeyInfo(prev => {
-        if (prev?.root === root && prev?.mode === mode) {
+        const currentKey = prev ? `${prev.root}_${prev.mode}` : null
+
+        if (currentKey === candidateKey) {
+          // Same key — just refresh confidence, clear pending
+          pendingKeyRef.current = null
           return { root, mode, confidence: result.confidence }
         }
-        // Key changed — reset chord votes but keep history visible
-        if (!lockedKey) {
-          chordVotesRef.current = []
+
+        // Different key — require a second consecutive win before committing
+        if (pendingKeyRef.current === candidateKey) {
+          pendingKeyRef.current = null
+          if (!lockedKey) chordVotesRef.current = []
+          return { root, mode, confidence: result.confidence }
         }
-        return { root, mode, confidence: result.confidence }
+
+        pendingKeyRef.current = candidateKey
+        return prev  // hold current key until next confirmation
       })
     }
   }, [lockedKey])
@@ -156,6 +186,17 @@ export default function App() {
         if (prev[prev.length - 1] === winner) return prev
         return [...prev.slice(-30), winner]
       })
+
+      // Inject chord tones into note history with boost weight so key detection
+      // anchors to confirmed chords rather than transient melody notes
+      const chordPCs = getChordTones(winner)
+        .map(n => NOTES.indexOf(n))
+        .filter(i => i >= 0)
+      const history = noteHistoryRef.current
+      for (let j = 0; j < CHORD_NOTE_BOOST; j++) {
+        for (const pc of chordPCs) history.push(pc)
+      }
+      while (history.length > NOTE_HISTORY_SIZE) history.shift()
     }
   }, [])
 
@@ -172,16 +213,24 @@ export default function App() {
           </h1>
           <p className="text-xs text-gray-600 mt-0.5">Real-time key detection for real humans</p>
         </div>
-        <button
-          onClick={() => setIsListening(l => !l)}
-          className={`px-5 py-2.5 rounded-full font-semibold text-sm transition-all ${
-            isListening
-              ? 'bg-red-600 hover:bg-red-700 text-white'
-              : 'bg-accent hover:bg-purple-600 text-white'
-          }`}
-        >
-          {isListening ? 'Stop' : 'Start Listening'}
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={newSong}
+            className="px-4 py-2.5 rounded-full font-semibold text-sm border border-border text-gray-400 hover:text-gray-200 hover:border-gray-400 transition-all"
+          >
+            New Song
+          </button>
+          <button
+            onClick={() => setIsListening(l => !l)}
+            className={`px-5 py-2.5 rounded-full font-semibold text-sm transition-all ${
+              isListening
+                ? 'bg-red-600 hover:bg-red-700 text-white'
+                : 'bg-accent hover:bg-purple-600 text-white'
+            }`}
+          >
+            {isListening ? 'Stop' : 'Start Listening'}
+          </button>
+        </div>
       </header>
 
       {/* ── Controls bar ── */}
