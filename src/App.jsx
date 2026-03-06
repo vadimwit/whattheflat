@@ -1,11 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import AudioCapture from './components/AudioCapture'
 import ProgressionBanner from './components/ProgressionBanner'
-import KeyDisplay from './components/KeyDisplay'
-import ChordDisplay from './components/ChordDisplay'
-import SafeNotes from './components/SafeNotes'
 import Fretboard from './components/Fretboard'
-import ProgressionSuggestions from './components/ProgressionSuggestions'
 import Tuner from './components/Tuner'
 import Piano from './components/Piano'
 import { NOTES, detectKey, detectTopKeys, matchChordFromChroma, detectRepeatingProgression, getChordTones } from './lib/theory'
@@ -295,17 +291,12 @@ export default function App() {
         chordHistory={chordHistory}
         keyInfo={effectiveKey}
         detectedProgression={detectedProgression}
+        currentChord={currentChord}
       />
 
-      {/* ── Main grid ── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <KeyDisplay keyInfo={effectiveKey} locked={!!lockedKey} />
-        <ChordDisplay history={chordHistory} />
-        <SafeNotes keyInfo={effectiveKey} currentChord={currentChord} />
-        <ProgressionSuggestions keyInfo={effectiveKey} />
-
-        {/* ── Instrument view — select in header ── */}
-        <div className="md:col-span-2">
+      {/* ── Instrument view — select in header ── */}
+      <div className="flex flex-col gap-3">
+        <div>
           <div className="flex items-center justify-between mb-1 px-1">
             <span className="text-xs text-gray-500 uppercase tracking-widest">Instrument</span>
             <select
@@ -324,7 +315,7 @@ export default function App() {
         </div>
 
         {/* ── Tuner — collapsible ── */}
-        <div className="md:col-span-2">
+        <div>
           <button
             onClick={() => setShowTuner(v => !v)}
             className="w-full flex items-center justify-between px-4 py-2 bg-panel border border-border rounded-xl text-sm text-gray-400 hover:text-gray-200 hover:border-gray-500 transition-all"
