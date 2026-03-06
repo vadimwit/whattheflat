@@ -13,14 +13,14 @@ import viewIcon from './assets/view.png'
 
 const DEFAULTS = {
   // Key detection
-  noteHistorySize:    12000, // ~whole session until New Song
-  keyVoteWindow:      40,    // larger window → needs sustained evidence to shift
-  keyVoteThreshold:   32,    // 80% of window must agree
+  noteHistorySize:    2000,  // ~60s of notes — stable across a song section
+  keyVoteWindow:      30,    // rolling window of key votes
+  keyVoteThreshold:   20,    // 67% consensus — locks in after a few bars
   chordNoteBoost:     3,
   // Chord detection
-  chromaSmooth:       14,   // more frames averaged → transient chords invisible
-  chordVoteThreshold: 4,    // 4 consecutive identical reads → ~600ms sustained
-  chordMinScore:      0.40, // slightly stricter match quality
+  chromaSmooth:       8,    // 8 frames ≈ 130ms window, checks chord at ~7.5 Hz
+  chordVoteThreshold: 2,    // 2 consecutive matches ≈ 260ms — works at any BPM
+  chordMinScore:      0.35, // lenient enough for live guitar signal
   // Audio input
   minClarity:         0.80,
   minVolume:          0.01,
@@ -495,6 +495,7 @@ export default function App() {
             noteAnalysis={debugNoteAnalysis}
             keyInfo={effectiveKey}
             currentChord={currentChord}
+            instrument={instrument}
           />
         </div>
       )}

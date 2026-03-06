@@ -28,8 +28,8 @@ const SETTINGS = [
       {
         key: 'noteHistorySize',
         label: 'Note History Size',
-        min: 20, max: 400, step: 10,
-        desc: 'Pitch readings kept in memory for key detection. Larger = slower to change, but chord boosts dominate more.',
+        min: 100, max: 12000, step: 100,
+        desc: 'Pitch readings kept for key detection. ~2000 ≈ 1 min, 12000 ≈ whole session. Larger = more stable key.',
       },
       {
         key: 'keyVoteWindow',

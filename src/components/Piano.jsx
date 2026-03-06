@@ -1,4 +1,4 @@
-import { getFullScale, getChordTones, NOTES } from '../lib/theory'
+import { getPentatonicScale, getFullScale, getChordTones, NOTES } from '../lib/theory'
 
 // White keys in order within an octave, mapped to pitch class
 const WHITE_KEYS = [
@@ -28,9 +28,10 @@ const BLACK_H    = 82         // black key height
 const LABEL_Y    = KEY_H - 10 // y of note label on white key
 const BLACK_LABEL_Y = BLACK_H - 8
 
-function keyColor(isChordTone, isScale, isBlack) {
+function keyColor(isChordTone, isPenta, isScale, isBlack) {
   if (isChordTone) return { fill: '#a855f7', text: '#fff' }
-  if (isScale)     return { fill: '#f59e0b', text: '#000' }
+  if (isPenta)     return { fill: '#f59e0b', text: '#000' }
+  if (isScale)     return { fill: '#374151', text: '#d1d5db' }
   return isBlack
     ? { fill: '#1f1f1f', text: '#6b7280' }
     : { fill: '#f5f5f5', text: '#6b7280' }
@@ -40,6 +41,7 @@ export default function Piano({ keyInfo, currentChord }) {
   const { root, mode } = keyInfo ?? {}
   if (!root) return null
 
+  const pentaSet = new Set(getPentatonicScale(root, mode).map(n => NOTES.indexOf(n)))
   const scaleSet = new Set(getFullScale(root, mode).map(n => NOTES.indexOf(n)))
   const chordSet = currentChord
     ? new Set(getChordTones(currentChord).map(n => NOTES.indexOf(n)))
@@ -64,8 +66,9 @@ export default function Piano({ keyInfo, currentChord }) {
             WHITE_KEYS.map((k, wi) => {
               const x = (oct * WHITE_KEYS.length + wi) * KEY_W + 1
               const isChordTone = chordSet.has(k.pc)
+              const isPenta     = pentaSet.has(k.pc)
               const isScale     = scaleSet.has(k.pc)
-              const { fill, text } = keyColor(isChordTone, isScale, false)
+              const { fill, text } = keyColor(isChordTone, isPenta, isScale, false)
               return (
                 <g key={`w-${oct}-${wi}`}>
                   <rect
@@ -76,15 +79,17 @@ export default function Piano({ keyInfo, currentChord }) {
                     stroke="#2a2a2a"
                     strokeWidth={1}
                   />
-                  <text
-                    x={x + KEY_W / 2} y={LABEL_Y}
-                    textAnchor="middle"
-                    fontSize={9}
-                    fontWeight="600"
-                    fill={text}
-                  >
-                    {k.label}{oct + 3}
-                  </text>
+                  {(isChordTone || isPenta || isScale) && (
+                    <text
+                      x={x + KEY_W / 2} y={LABEL_Y}
+                      textAnchor="middle"
+                      fontSize={9}
+                      fontWeight="600"
+                      fill={text}
+                    >
+                      {k.label}
+                    </text>
+                  )}
                 </g>
               )
             })
@@ -95,8 +100,9 @@ export default function Piano({ keyInfo, currentChord }) {
             BLACK_KEYS.map((k, bi) => {
               const x = (oct * WHITE_KEYS.length + k.offset) * KEY_W + 1
               const isChordTone = chordSet.has(k.pc)
+              const isPenta     = pentaSet.has(k.pc)
               const isScale     = scaleSet.has(k.pc)
-              const { fill, text } = keyColor(isChordTone, isScale, true)
+              const { fill, text } = keyColor(isChordTone, isPenta, isScale, true)
               return (
                 <g key={`b-${oct}-${bi}`}>
                   <rect
@@ -107,15 +113,17 @@ export default function Piano({ keyInfo, currentChord }) {
                     stroke="#111"
                     strokeWidth={1}
                   />
-                  <text
-                    x={x + BLACK_W / 2} y={BLACK_LABEL_Y}
-                    textAnchor="middle"
-                    fontSize={8}
-                    fontWeight="600"
-                    fill={text}
-                  >
-                    {NOTES[k.pc]}
-                  </text>
+                  {(isChordTone || isPenta || isScale) && (
+                    <text
+                      x={x + BLACK_W / 2} y={BLACK_LABEL_Y}
+                      textAnchor="middle"
+                      fontSize={8}
+                      fontWeight="600"
+                      fill={text}
+                    >
+                      {NOTES[k.pc]}
+                    </text>
+                  )}
                 </g>
               )
             })
@@ -126,7 +134,8 @@ export default function Piano({ keyInfo, currentChord }) {
 
       <div className="mt-3 flex gap-5 text-xs text-gray-500">
         <span><span className="text-accent">●</span> Chord tone</span>
-        <span><span className="text-accent">●</span> Scale note</span>
+        <span><span className="text-amber-400">●</span> Pentatonic</span>
+        <span><span className="text-gray-500">●</span> Scale</span>
       </div>
     </div>
   )

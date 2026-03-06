@@ -1,7 +1,21 @@
-const { app, BrowserWindow } = require('electron')
+const { app, BrowserWindow, systemPreferences } = require('electron')
 const path = require('path')
 
 const isDev = !app.isPackaged
+
+async function handlePermissions() {
+  // macOS requires an explicit native request for microphone access in packaged apps
+  if (process.platform === 'darwin') {
+    try {
+      const status = systemPreferences.getMediaAccessStatus('microphone')
+      if (status !== 'granted') {
+        await systemPreferences.askForMediaAccess('microphone')
+      }
+    } catch (err) {
+      console.error('[Main] Microphone permission error:', err)
+    }
+  }
+}
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -15,20 +29,20 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: false,  // allows renderer getUserMedia to work on all platforms
     },
   })
 
   if (isDev) {
-    // Dev: load from Vite dev server
     win.loadURL('http://localhost:5173')
     win.webContents.openDevTools()
   } else {
-    // Production: load built files from disk
     win.loadFile(path.join(__dirname, '../dist/index.html'))
   }
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  await handlePermissions()
   createWindow()
 
   app.on('activate', () => {
