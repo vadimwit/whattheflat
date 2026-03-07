@@ -30,14 +30,14 @@ const fretX = f => NUT_X + (f - 0.5) * FRET_W
 // y centre of string si (0 = high e, 5 = low E)
 const stringY = si => PAD_T + si * STRING_H
 
-function noteColor(isChordTone, isPenta, isScale) {
-  if (isChordTone) return { fill: '#a855f7', text: '#fff' }   // purple
-  if (isPenta)     return { fill: '#f59e0b', text: '#000' }   // amber
-  if (isScale)     return { fill: '#374151', text: '#d1d5db' } // grey
+function noteColor(isChordTone, isPenta, isScale, mono = false) {
+  if (isChordTone) return { fill: '#a855f7', text: '#fff' }
+  if (isPenta)     return mono ? { fill: '#c084fc', text: '#1e1b4b' } : { fill: '#f59e0b', text: '#000' }
+  if (isScale)     return mono ? { fill: '#e9d5ff', text: '#581c87' } : { fill: '#374151', text: '#d1d5db' }
   return null
 }
 
-export default function Fretboard({ keyInfo, currentChord, pentatonicOnly = false }) {
+export default function Fretboard({ keyInfo, currentChord, pentatonicOnly = false, monoColor = false }) {
   const { root, mode } = keyInfo ?? {}
 
   if (!root) return null
@@ -120,7 +120,7 @@ export default function Fretboard({ keyInfo, currentChord, pentatonicOnly = fals
           {STRINGS.flatMap((str, si) =>
             Array.from({ length: NUM_FRETS }, (_, fi) => {
               const pc = (str.root + fi) % 12
-              const color = noteColor(chordSet.has(pc), pentaSet.has(pc), scaleSet.has(pc))
+              const color = noteColor(chordSet.has(pc), pentaSet.has(pc), scaleSet.has(pc), monoColor)
               if (!color) return null
 
               const cx = fi === 0 ? OPEN_X : fretX(fi)
@@ -147,8 +147,8 @@ export default function Fretboard({ keyInfo, currentChord, pentatonicOnly = fals
 
       <div className="mt-3 flex gap-5 text-xs text-gray-500">
         <span><span className="text-accent">●</span> Chord tone</span>
-        <span><span className="text-amber-400">●</span> Pentatonic</span>
-        <span><span className="text-gray-500">●</span> Scale</span>
+        <span style={{ color: monoColor ? '#c084fc' : '#f59e0b' }}>●</span><span> Pentatonic</span>
+        <span style={{ color: monoColor ? '#e9d5ff' : '#6b7280' }}>●</span><span> Scale</span>
       </div>
     </div>
   )

@@ -28,16 +28,16 @@ const BLACK_H    = 82         // black key height
 const LABEL_Y    = KEY_H - 10 // y of note label on white key
 const BLACK_LABEL_Y = BLACK_H - 8
 
-function keyColor(isChordTone, isPenta, isScale, isBlack) {
+function keyColor(isChordTone, isPenta, isScale, isBlack, mono = false) {
   if (isChordTone) return { fill: '#a855f7', text: '#fff' }
-  if (isPenta)     return { fill: '#f59e0b', text: '#000' }
-  if (isScale)     return { fill: '#374151', text: '#d1d5db' }
+  if (isPenta)     return mono ? { fill: '#c084fc', text: '#1e1b4b' } : { fill: '#f59e0b', text: '#000' }
+  if (isScale)     return mono ? { fill: '#e9d5ff', text: '#581c87' } : { fill: '#374151', text: '#d1d5db' }
   return isBlack
     ? { fill: '#1f1f1f', text: '#6b7280' }
     : { fill: '#f5f5f5', text: '#6b7280' }
 }
 
-export default function Piano({ keyInfo, currentChord }) {
+export default function Piano({ keyInfo, currentChord, monoColor = false }) {
   const { root, mode } = keyInfo ?? {}
   if (!root) return null
 
@@ -68,7 +68,7 @@ export default function Piano({ keyInfo, currentChord }) {
               const isChordTone = chordSet.has(k.pc)
               const isPenta     = pentaSet.has(k.pc)
               const isScale     = scaleSet.has(k.pc)
-              const { fill, text } = keyColor(isChordTone, isPenta, isScale, false)
+              const { fill, text } = keyColor(isChordTone, isPenta, isScale, false, monoColor)
               return (
                 <g key={`w-${oct}-${wi}`}>
                   <rect
@@ -102,7 +102,7 @@ export default function Piano({ keyInfo, currentChord }) {
               const isChordTone = chordSet.has(k.pc)
               const isPenta     = pentaSet.has(k.pc)
               const isScale     = scaleSet.has(k.pc)
-              const { fill, text } = keyColor(isChordTone, isPenta, isScale, true)
+              const { fill, text } = keyColor(isChordTone, isPenta, isScale, true, monoColor)
               return (
                 <g key={`b-${oct}-${bi}`}>
                   <rect
@@ -134,8 +134,8 @@ export default function Piano({ keyInfo, currentChord }) {
 
       <div className="mt-3 flex gap-5 text-xs text-gray-500">
         <span><span className="text-accent">●</span> Chord tone</span>
-        <span><span className="text-amber-400">●</span> Pentatonic</span>
-        <span><span className="text-gray-500">●</span> Scale</span>
+        <span><span style={{ color: monoColor ? '#c084fc' : '#f59e0b' }}>●</span> Pentatonic</span>
+        <span><span style={{ color: monoColor ? '#e9d5ff' : '#6b7280' }}>●</span> Scale</span>
       </div>
     </div>
   )

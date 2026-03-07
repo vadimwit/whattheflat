@@ -45,6 +45,7 @@ export default function App() {
   const [instrument, setInstrument] = useState('guitar')  // 'guitar' | 'piano'
   const [showTuner, setShowTuner]   = useState(false)
   const [showDebug, setShowDebug]   = useState(false)
+  const [monoColor, setMonoColor]   = useState(false)
 
   // ── Mic permission error ──────────────────────────────────────────────────────
   const [micError, setMicError] = useState(null)
@@ -307,6 +308,16 @@ export default function App() {
         </div>
         <div className="flex gap-2 items-center">
           <button
+            onClick={() => setMonoColor(v => !v)}
+            className={`p-2 rounded-full border transition-all ${monoColor ? 'border-accent bg-accent/10' : 'border-border hover:border-gray-400'}`}
+            title="Mono color mode"
+          >
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" style={{ opacity: 0.75 }}>
+              <circle cx="6"  cy="10" r="4" fill={monoColor ? '#a855f7' : '#a855f7'} />
+              <circle cx="13" cy="10" r="4" fill={monoColor ? '#c084fc' : '#f59e0b'} />
+            </svg>
+          </button>
+          <button
             onClick={() => setShowDebug(v => !v)}
             className={`p-2 rounded-full border transition-all ${showDebug ? 'border-accent bg-accent/10' : 'border-border hover:border-gray-400'}`}
             title="Behind the scenes"
@@ -474,8 +485,8 @@ export default function App() {
       <div className="flex gap-3 mb-3 items-stretch">
         <div className="w-full lg:w-[70%] min-w-0">
           {instrument === 'guitar'
-            ? <Fretboard keyInfo={effectiveKey} currentChord={currentChord} pentatonicOnly={false} />
-            : <Piano keyInfo={effectiveKey} currentChord={currentChord} />
+            ? <Fretboard keyInfo={effectiveKey} currentChord={currentChord} pentatonicOnly={false} monoColor={monoColor} />
+            : <Piano keyInfo={effectiveKey} currentChord={currentChord} monoColor={monoColor} />
           }
         </div>
 
