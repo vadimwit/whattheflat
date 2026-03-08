@@ -81,7 +81,7 @@ function detectBassPC(freqData, sampleRate, fftSize) {
   return ((bestMidi % 12) + 12) % 12
 }
 
-export default function AudioCapture({ onNote, onChroma, isListening, minClarity = 0.80, minVolume = 0.01, onPermissionError }) {
+export default function AudioCapture({ onNote, onChroma, onOnset, isListening, minClarity = 0.80, minVolume = 0.01, onPermissionError }) {
   const audioCtxRef   = useRef(null)
   const timeBufRef    = useRef(null)
   const freqBufRef    = useRef(null)
@@ -93,11 +93,15 @@ export default function AudioCapture({ onNote, onChroma, isListening, minClarity
   // All callbacks and thresholds read via refs — so start/stop never need to recreate
   const onNoteRef            = useRef(onNote)
   const onChromaRef          = useRef(onChroma)
+  const onOnsetRef           = useRef(onOnset)
   const onPermissionErrorRef = useRef(onPermissionError)
   const minClarityRef        = useRef(minClarity)
   const minVolumeRef         = useRef(minVolume)
+  const smoothRmsRef         = useRef(0)
+  const lastOnsetRef         = useRef(0)
   useEffect(() => { onNoteRef.current            = onNote            }, [onNote])
   useEffect(() => { onChromaRef.current          = onChroma          }, [onChroma])
+  useEffect(() => { onOnsetRef.current           = onOnset           }, [onOnset])
   useEffect(() => { onPermissionErrorRef.current = onPermissionError }, [onPermissionError])
   useEffect(() => { minClarityRef.current        = minClarity        }, [minClarity])
   useEffect(() => { minVolumeRef.current         = minVolume         }, [minVolume])
@@ -118,8 +122,10 @@ export default function AudioCapture({ onNote, onChroma, isListening, minClarity
       onPermissionErrorRef.current?.(err)
       return
     }
-    streamRef.current = stream
-    activeRef.current = true
+    streamRef.current  = stream
+    activeRef.current  = true
+    smoothRmsRef.current  = 0
+    lastOnsetRef.current  = 0
 
     const ctx = new AudioContext()
     audioCtxRef.current = ctx
@@ -136,7 +142,7 @@ export default function AudioCapture({ onNote, onChroma, isListening, minClarity
     // Large analyser — chord detection needs fine frequency resolution
     const ca = ctx.createAnalyser()
     ca.fftSize = CHORD_FFT
-    ca.smoothingTimeConstant = 0.65
+    ca.smoothingTimeConstant = 0.5   // reduced from 0.65 — clears faster between chords
     source.connect(ca)
     freqBufRef.current = new Float32Array(ca.frequencyBinCount)
 
@@ -147,6 +153,16 @@ export default function AudioCapture({ onNote, onChroma, isListening, minClarity
       pa.getFloatTimeDomainData(timeBuf)
 
       const rms = Math.sqrt(timeBuf.reduce((s, v) => s + v * v, 0) / timeBuf.length)
+
+      // Onset detection — RMS spike significantly above smoothed baseline
+      const sr = smoothRmsRef.current
+      smoothRmsRef.current = 0.85 * sr + 0.15 * rms
+      const nowMs = performance.now()
+      if (rms > sr * 2.2 && rms > minVolumeRef.current * 1.5 && nowMs - lastOnsetRef.current > 120) {
+        lastOnsetRef.current = nowMs
+        onOnsetRef.current?.()
+      }
+
       if (rms >= minVolumeRef.current) {
         const [freq, clarity] = detectorRef.current.findPitch(timeBuf, ctx.sampleRate)
         if (clarity >= minClarityRef.current && freq > 60 && freq < 4200) {

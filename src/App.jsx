@@ -60,10 +60,10 @@ export default function App() {
   const lockedKeyRef  = useRef(null)
   useEffect(() => { showDebugRef.current = showDebug }, [showDebug])
 
-  // ── BPM estimation from chord-change intervals ────────────────────────────────
-  const [bpm, setBpm]               = useState(null)
-  const chordTimestampsRef = useRef([])
-  const bpmSmoothRef       = useRef(null)   // exponentially smoothed BPM
+  // ── BPM estimation from onset timestamps ─────────────────────────────────────
+  const [bpm, setBpm]           = useState(null)
+  const onsetTimestampsRef      = useRef([])
+  const bpmSmoothRef            = useRef(null)
 
   // ── Key: auto-detected + optional lock ───────────────────────────────────────
   const [keyInfo, setKeyInfo]     = useState(null)     // auto-detected
@@ -127,7 +127,7 @@ export default function App() {
     pendingKeyRef.current      = null
     chromaIdxRef.current       = 0
     chromaRingRef.current      = Array.from({ length: cfg.chromaSmooth }, () => new Float32Array(12))
-    chordTimestampsRef.current = []
+    onsetTimestampsRef.current = []
     bpmSmoothRef.current       = null
     setKeyInfo(null)
     setLockedKey(null)
@@ -228,6 +228,19 @@ export default function App() {
       setDebugCandidates(getChordCandidates(avg, key, bassPC))
     }
 
+    // Stability gate — if chroma is still changing across frames, we're mid-transition.
+    // Compute per-bin variance across the ring; bail if any bin is fluctuating heavily.
+    let maxVar = 0
+    for (let i = 0; i < 12; i++) {
+      let v = 0
+      for (const frame of ring) { const d = frame[i] - avg[i]; v += d * d }
+      if (v / cfg.chromaSmooth > maxVar) maxVar = v / cfg.chromaSmooth
+    }
+    if (maxVar > 0.05) {
+      chordVotesRef.current = []
+      return
+    }
+
     const chord = matchChordFromChroma(avg, key, bassPC, false, cfg.chordMinScore)
     if (!chord) {
       chordVotesRef.current = []
@@ -245,31 +258,6 @@ export default function App() {
         return [...prev.slice(-30), winner]
       })
 
-      // BPM: track chord commit timestamps, trim outliers, smooth result
-      const now = performance.now()
-      const ts = chordTimestampsRef.current
-      ts.push(now)
-      if (ts.length > 32) ts.shift()
-      if (ts.length >= 4) {
-        const intervals = []
-        for (let i = 1; i < ts.length; i++) intervals.push(ts[i] - ts[i - 1])
-
-        // Trim the most extreme 25% on each side to remove held/rushed chords
-        const sorted = [...intervals].sort((a, b) => a - b)
-        const trim   = Math.max(1, Math.floor(sorted.length * 0.25))
-        const trimmed = sorted.slice(trim, sorted.length - trim)
-        const avgMs  = trimmed.reduce((a, b) => a + b) / trimmed.length
-
-        let raw = 60000 / avgMs
-        while (raw < 55)  raw *= 2
-        while (raw > 220) raw /= 2
-
-        // Exponential smoothing — blend toward new estimate gradually
-        const prev = bpmSmoothRef.current
-        bpmSmoothRef.current = prev === null ? raw : 0.25 * raw + 0.75 * prev
-        setBpm(Math.round(bpmSmoothRef.current))
-      }
-
       // Inject chord tones into note history to anchor key detection
       const chordPCs = getChordTones(winner)
         .map(n => NOTES.indexOf(n))
@@ -280,6 +268,50 @@ export default function App() {
       }
       while (history.length > cfg.noteHistorySize) history.shift()
     }
+  }, [])
+
+  // ── Onset handler: drives BPM estimation via tempo histogram ────────────────
+  // Pairwise inter-onset intervals are folded into 55-220 BPM and vote in a
+  // histogram. Works with drums, guitar, piano, or mixed — whatever fires most
+  // consistently wins. Only updates when there's a clear peak (≥20% of votes).
+  const handleOnset = useCallback(() => {
+    const ts = onsetTimestampsRef.current
+    ts.push(performance.now())
+    if (ts.length > 64) ts.shift()
+    if (ts.length < 4) return
+
+    const recent = ts.slice(-24)
+    const bins = new Float32Array(221)   // index = BPM (55–220)
+
+    for (let i = 0; i < recent.length - 1; i++) {
+      for (let j = i + 1; j < recent.length && j < i + 8; j++) {
+        const ms = recent[j] - recent[i]
+        if (ms < 140 || ms > 6000) continue
+
+        // Fold interval into 55-220 BPM range (handles subdivisions & half-time)
+        let beatMs = ms
+        while (beatMs > 1091) beatMs /= 2
+        while (beatMs < 273)  beatMs *= 2
+        if (beatMs < 273 || beatMs > 1091) continue
+
+        const bpm = Math.round(60000 / beatMs)
+        if (bpm >= 55 && bpm <= 220) bins[bpm] += 1 / (j - i)  // weight closer pairs more
+      }
+    }
+
+    // Find peak with ±1 BPM smoothing
+    let best = 0, bestBpm = 0
+    for (let b = 56; b <= 219; b++) {
+      const s = bins[b - 1] + bins[b] + bins[b + 1]
+      if (s > best) { best = s; bestBpm = b }
+    }
+
+    const total = bins.reduce((a, v) => a + v, 0)
+    if (total < 1 || best / total < 0.2) return  // no clear consensus yet
+
+    const prev = bpmSmoothRef.current
+    bpmSmoothRef.current = prev === null ? bestBpm : 0.25 * bestBpm + 0.75 * prev
+    setBpm(Math.round(bpmSmoothRef.current))
   }, [])
 
   const currentChord = chordHistory[chordHistory.length - 1]
@@ -457,6 +489,7 @@ export default function App() {
       <AudioCapture
         onNote={handleNote}
         onChroma={handleChroma}
+        onOnset={handleOnset}
         isListening={isListening}
         minClarity={config.minClarity}
         minVolume={config.minVolume}

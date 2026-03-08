@@ -57,13 +57,13 @@ export const CHORD_TYPES = {
 
 // Chord types considered during real-time chroma matching
 const MATCH_CHORD_TYPES = [
-  'maj', 'min', 'dom7', 'min7', 'dim', 'half_dim', 'aug', 'sus4', 'add9',
+  'maj', 'min', 'dom7', 'maj7', 'min7', 'dim', 'half_dim', 'aug', 'sus4', 'sus2', 'add9',
 ]
 
 // Minimum score for a chord match to be reported
 const CHORD_MATCH_MIN_SCORE  = 0.42
 // Minimum margin over second-best for a match to be considered unambiguous
-const CHORD_MATCH_MIN_MARGIN = 0.04
+const CHORD_MATCH_MIN_MARGIN = 0.07
 
 // Chord quality for each scale degree, per mode
 const DEGREE_QUALITIES = {
@@ -286,10 +286,13 @@ export function matchChordFromChroma(
 
       const tones = new Set(type.intervals.map(i => (r + i) % 12))
 
+      // Skip if root has no meaningful energy — chord without its root is unreliable
+      if (chroma[r] < 0.08) continue
+
       let inEnergy = 0, outEnergy = 0
       for (let pc = 0; pc < 12; pc++) {
         if (pc === r) {
-          inEnergy  += chroma[pc] * 2   // root carries strongest identity signal
+          inEnergy  += chroma[pc] * 1.5  // root weight reduced: 2→1.5 (less root bias)
         } else if (tones.has(pc)) {
           inEnergy  += chroma[pc]
         } else {
@@ -299,7 +302,8 @@ export function matchChordFromChroma(
 
       if (inEnergy + outEnergy < 0.05) continue
 
-      const coverageScore = inEnergy / (inEnergy + outEnergy * 0.5)
+      // Stricter outEnergy penalty (0.7 vs 0.5) — wrong notes hurt more
+      const coverageScore = inEnergy / (inEnergy + outEnergy * 0.7)
       const bassBonus     = bassPC !== null && r === bassPC ? 0.15 : 0
       const diatonicBonus = diatonicSet.has(chordName)     ? 0.15 : 0
 
