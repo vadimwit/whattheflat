@@ -70,6 +70,19 @@ const SETTINGS = [
   },
 ]
 
+const TOGGLES = [
+  {
+    section: 'Experimental',
+    items: [
+      {
+        key: 'useEssentia',
+        label: 'Essentia HPCP',
+        desc: 'Replace custom chroma with Essentia\'s Harmonic Pitch Class Profile (spectral peaks + 8 harmonics). More accurate on polyphonic input. May be slower.',
+      },
+    ],
+  },
+]
+
 export default function Settings({ config, onChange, onClose, onReset }) {
   return (
     <div className="fixed inset-0 bg-surface z-50 overflow-y-auto">
@@ -97,6 +110,31 @@ export default function Settings({ config, onChange, onClose, onReset }) {
         </div>
 
         <div className="space-y-8">
+          {TOGGLES.map(section => (
+            <div key={section.section}>
+              <h3 className="text-xs uppercase tracking-widest text-gray-500 mb-4 border-b border-border pb-2">
+                {section.section}
+              </h3>
+              <div className="space-y-4">
+                {section.items.map(item => (
+                  <label key={item.key} className="flex items-start gap-3 cursor-pointer group">
+                    <input
+                      type="checkbox"
+                      checked={!!config[item.key]}
+                      onChange={e => onChange(item.key, e.target.checked)}
+                      className="mt-0.5 accent-purple-500 w-4 h-4 flex-shrink-0"
+                    />
+                    <div>
+                      <div className="text-sm font-semibold text-gray-200 group-hover:text-white transition-colors">
+                        {item.label}
+                      </div>
+                      <div className="text-xs text-gray-600 mt-0.5">{item.desc}</div>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            </div>
+          ))}
           {SETTINGS.map(section => (
             <div key={section.section}>
               <h3 className="text-xs uppercase tracking-widest text-gray-500 mb-4 border-b border-border pb-2">

@@ -3,6 +3,7 @@ import AudioCapture from './components/AudioCapture'
 import ProgressionBanner from './components/ProgressionBanner'
 import ProgressionSuggestions from './components/ProgressionSuggestions'
 import Fretboard from './components/Fretboard'
+import BassFretboard from './components/BassFretboard'
 import Tuner from './components/Tuner'
 import Piano from './components/Piano'
 import Settings from './components/Settings'
@@ -24,6 +25,8 @@ const DEFAULTS = {
   // Audio input
   minClarity:         0.80,
   minVolume:          0.01,
+  // Experimental
+  useEssentia:        false,
 }
 
 export default function App() {
@@ -42,7 +45,7 @@ export default function App() {
   const [isListening, setIsListening] = useState(false)
 
   // ── Instrument view + tuner ───────────────────────────────────────────────────
-  const [instrument, setInstrument] = useState('guitar')  // 'guitar' | 'piano'
+  const [instrument, setInstrument] = useState('guitar')  // 'guitar' | 'bass' | 'piano'
   const [showTuner, setShowTuner]   = useState(false)
   const [showDebug, setShowDebug]   = useState(false)
   const [monoColor, setMonoColor]   = useState(false)
@@ -394,6 +397,7 @@ export default function App() {
             className="appearance-none bg-surface border border-border hover:border-gray-500 focus:border-accent focus:outline-none rounded-lg pl-3 pr-7 py-1 text-sm text-gray-200 cursor-pointer transition-colors"
           >
             <option value="guitar">Guitar</option>
+            <option value="bass">Bass</option>
             <option value="piano">Piano</option>
           </select>
           <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 text-xs">▾</span>
@@ -493,6 +497,7 @@ export default function App() {
         isListening={isListening}
         minClarity={config.minClarity}
         minVolume={config.minVolume}
+        useEssentia={config.useEssentia}
         onPermissionError={() => {
           setMicError(true)
           setIsListening(false)
@@ -517,10 +522,9 @@ export default function App() {
       {/* ── Instrument + progressions row ── */}
       <div className="flex gap-3 mb-3 items-stretch">
         <div className="w-full lg:w-[70%] min-w-0">
-          {instrument === 'guitar'
-            ? <Fretboard keyInfo={effectiveKey} currentChord={currentChord} pentatonicOnly={false} monoColor={monoColor} />
-            : <Piano keyInfo={effectiveKey} currentChord={currentChord} monoColor={monoColor} />
-          }
+          {instrument === 'guitar' && <Fretboard keyInfo={effectiveKey} currentChord={currentChord} pentatonicOnly={false} monoColor={monoColor} />}
+          {instrument === 'bass'   && <BassFretboard keyInfo={effectiveKey} currentChord={currentChord} monoColor={monoColor} />}
+          {instrument === 'piano'  && <Piano keyInfo={effectiveKey} currentChord={currentChord} monoColor={monoColor} />}
         </div>
 
         <div className="hidden lg:block w-[30%] min-w-0 relative">

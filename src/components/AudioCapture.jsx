@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react'
 import { PitchDetector } from 'pitchy'
 import { NOTES } from '../lib/theory'
+import { initEssentia, getEssentia, computeHPCP } from '../lib/essentiaHPCP'
 
 // ─── Why two analysers? ───────────────────────────────────────────────────────
 //
@@ -81,7 +82,7 @@ function detectBassPC(freqData, sampleRate, fftSize) {
   return ((bestMidi % 12) + 12) % 12
 }
 
-export default function AudioCapture({ onNote, onChroma, onOnset, isListening, minClarity = 0.80, minVolume = 0.01, onPermissionError }) {
+export default function AudioCapture({ onNote, onChroma, onOnset, isListening, minClarity = 0.80, minVolume = 0.01, onPermissionError, useEssentia = false }) {
   const audioCtxRef   = useRef(null)
   const timeBufRef    = useRef(null)
   const freqBufRef    = useRef(null)
@@ -97,6 +98,7 @@ export default function AudioCapture({ onNote, onChroma, onOnset, isListening, m
   const onPermissionErrorRef = useRef(onPermissionError)
   const minClarityRef        = useRef(minClarity)
   const minVolumeRef         = useRef(minVolume)
+  const useEssentiaRef       = useRef(useEssentia)
   const smoothRmsRef         = useRef(0)
   const lastOnsetRef         = useRef(0)
   useEffect(() => { onNoteRef.current            = onNote            }, [onNote])
@@ -105,6 +107,11 @@ export default function AudioCapture({ onNote, onChroma, onOnset, isListening, m
   useEffect(() => { onPermissionErrorRef.current = onPermissionError }, [onPermissionError])
   useEffect(() => { minClarityRef.current        = minClarity        }, [minClarity])
   useEffect(() => { minVolumeRef.current         = minVolume         }, [minVolume])
+  useEffect(() => { useEssentiaRef.current       = useEssentia       }, [useEssentia])
+
+  // Pre-load Essentia WASM as soon as the component mounts — it's a singleton,
+  // so repeated calls just return the cached instance.
+  useEffect(() => { initEssentia().catch(console.error) }, [])
 
   const stop = useCallback(() => {
     activeRef.current = false
@@ -174,8 +181,20 @@ export default function AudioCapture({ onNote, onChroma, onOnset, isListening, m
         if (onChromaRef.current) {
           const freqBuf = freqBufRef.current
           ca.getFloatFrequencyData(freqBuf)
+          let chroma
+          const essentia = useEssentiaRef.current ? getEssentia() : null
+          if (essentia) {
+            try {
+              chroma = computeHPCP(essentia, freqBuf, ctx.sampleRate)
+            } catch (err) {
+              console.error('[Essentia] computeHPCP failed, falling back to custom chroma:', err)
+              chroma = computeChroma(freqBuf, ctx.sampleRate, ca.fftSize)
+            }
+          } else {
+            chroma = computeChroma(freqBuf, ctx.sampleRate, ca.fftSize)
+          }
           onChromaRef.current(
-            computeChroma(freqBuf, ctx.sampleRate, ca.fftSize),
+            chroma,
             detectBassPC(freqBuf, ctx.sampleRate, ca.fftSize)
           )
         }

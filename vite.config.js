@@ -11,4 +11,9 @@ export default defineConfig({
   build: {
     outDir: 'dist',
   },
+  optimizeDeps: {
+    // Essentia uses emscripten output that esbuild can't pre-bundle reliably.
+    // Exclude it so Vite serves the files directly from node_modules.
+    exclude: ['essentia.js'],
+  },
 })
