@@ -12,63 +12,66 @@ jobs:
   build:
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false # Ensures one OS failing doesn't kill the others
       matrix:
         include:
           - os: windows-latest
             command: npm run electron:build:win
-            artifact: release/*.exe
-            env:
-              CSC_IDENTITY_AUTO_DISCOVERY: false
-              WIN_CSC_LINK: ''
+            artifact_pattern: "release/*.exe"
           - os: macos-latest
-            command: npm run electron:build:mac -- --universal
-            artifact: release/*.dmg
-            env:
-              CSC_IDENTITY_AUTO_DISCOVERY: false
+            # Added --universal here if you want to support both Intel and Apple Silicon
+            command: npm run electron:build:mac -- --universal 
+            artifact_pattern: "release/*.dmg"
           - os: ubuntu-latest
             command: npm run electron:build:linux
-            artifact: release/*.AppImage
-            env:
-              CSC_IDENTITY_AUTO_DISCOVERY: false
+            artifact_pattern: "release/*.AppImage"
+    
+    env:
+      # This fixes the "GitHub Personal Access Token is not set" error
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # Prevents errors related to missing code-signing certificates
+      CSC_IDENTITY_AUTO_DISCOVERY: false
+
     steps:
       - uses: actions/checkout@v4
+      
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - run: npm install
-      - name: Build (Windows)
-        if: matrix.os == 'windows-latest'
-        run: ${{ matrix.command }}
-        env:
-          CSC_IDENTITY_AUTO_DISCOVERY: false
-          WIN_CSC_LINK: ''
+          cache: 'npm'
 
-      - name: Build (mac/linux)
-        if: matrix.os != 'windows-latest'
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build Application
         run: ${{ matrix.command }}
-        env:
-          CSC_IDENTITY_AUTO_DISCOVERY: false
-      - name: Upload build artifacts
+
+      - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.os }}-artifacts
-          path: ${{ matrix.artifact }}
-          if-no-files-found: ignore
+          name: artifacts-${{ matrix.os }}
+          path: ${{ matrix.artifact_pattern }}
+          if-no-files-found: error
 
   publish:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Download all build artifacts
+      - name: Download all artifacts
         uses: actions/download-artifact@v4
-      - name: Aggregate artifacts
-        run: |
-          mkdir -p release_all
-          find . -type f \( -name "*.dmg" -o -name "*.AppImage" -o -name "*.exe" -o -name "*.deb" \) -exec cp {} release_all/ \;
-      - name: List aggregated artifacts
-        run: ls -la release_all || true
-      - name: Create GitHub Release with all artifacts
+        with:
+          # This downloads all "artifacts-*" into a folder named 'all-outputs'
+          path: all-outputs 
+          merge-multiple: true
+
+      - name: List files for debugging
+        run: ls -R all-outputs
+
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: release_all/*
+          # Point directly to the folder where all OS builds are merged
+          files: all-outputs/*
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
