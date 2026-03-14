@@ -34,8 +34,8 @@
     "wait-on": "^9.0.4"
   },
   "build": {
-    "appId": "com.whattheflat.app",
-    "productName": "WhatTheFlat",
+    "appId": "com.jambuddy.app",
+    "productName": "JamBuddy",
     "files": [
       "dist/**/*",
       "electron/**/*",
