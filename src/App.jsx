@@ -8,6 +8,7 @@ import Tuner from './components/Tuner'
 import Piano from './components/Piano'
 import Settings from './components/Settings'
 import DebugView from './components/DebugView'
+import DrumView from './components/DrumView'
 import { NOTES, detectKey, detectTopKeys, matchChordFromChroma, detectRepeatingProgression, getChordTones, getChordCandidates, getNoteHistoryAnalysis } from './lib/theory'
 import settingIcon from './assets/setting-icon.png'
 
@@ -49,7 +50,8 @@ export default function App() {
   // ── Instrument view + tuner ───────────────────────────────────────────────────
   const [instrument, setInstrument] = useState('piano')  // 'piano' | 'guitar' | 'bass'
   const [showTuner, setShowTuner]   = useState(false)
-  const [showDebug, setShowDebug]   = useState(false)
+  const [showDebug, setShowDebug]       = useState(false)
+  const [showDrumView, setShowDrumView] = useState(false)
   const [monoColor, setMonoColor]   = useState(() => loadStored('wtf_monoColor', false))
 
   // ── Mic permission error ──────────────────────────────────────────────────────
@@ -63,9 +65,11 @@ export default function App() {
 
   // ── Stable refs for values used inside callbacks ──────────────────────────────
   const showDebugRef    = useRef(showDebug)
+  const showDrumViewRef = useRef(showDrumView)
   const lockedKeyRef    = useRef(null)
   const listenStartRef  = useRef(null)
   useEffect(() => { showDebugRef.current = showDebug }, [showDebug])
+  useEffect(() => { showDrumViewRef.current = showDrumView }, [showDrumView])
   useEffect(() => { localStorage.setItem('wtf_monoColor', JSON.stringify(monoColor)) }, [monoColor])
   useEffect(() => { if (isListening) listenStartRef.current = Date.now() }, [isListening])
 
@@ -184,9 +188,11 @@ export default function App() {
     effectiveKeyRef.current = keyInfo
   }
 
-  // ── Waveform handler: feeds oscilloscope in debug view ───────────────────────
+  // ── Waveform handler: feeds oscilloscope / drum view ─────────────────────────
   const handleWaveform = useCallback((data) => {
-    if (showDebugRef.current) setDebugWaveform(data)
+    if (showDebugRef.current || showDrumViewRef.current) {
+      setDebugWaveform({ ...data, onsets: [...onsetTimestampsRef.current] })
+    }
   }, [])
 
   // ── Note handler: drives key detection (pitch-based) ──────────────────────────
@@ -565,6 +571,22 @@ export default function App() {
               instrument={instrument}
               monoColor={monoColor}
             />
+          </div>
+        )}
+      </div>
+
+      {/* ── Rhythm / drum analyser — collapsible ── */}
+      <div className="mb-3 bg-panel border border-border rounded-xl overflow-hidden">
+        <button
+          onClick={() => setShowDrumView(v => !v)}
+          className="w-full flex items-center justify-between px-4 py-2 text-sm text-gray-400 hover:text-gray-200 transition-all"
+        >
+          <span>RHYTHM ANALYSER</span>
+          <span>{showDrumView ? '▲' : '▼'}</span>
+        </button>
+        {showDrumView && (
+          <div className="border-t border-border p-4">
+            <DrumView waveform={debugWaveform} bpm={bpm} />
           </div>
         )}
       </div>
