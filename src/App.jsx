@@ -25,6 +25,8 @@ const DEFAULTS = {
   // Audio input
   minClarity:         0.80,
   minVolume:          0.01,
+  // Selected device (null = system default)
+  audioDeviceId:      null,
 }
 
 function loadStored(key, fallback) {
@@ -514,6 +516,7 @@ export default function App() {
         isListening={isListening}
         minClarity={config.minClarity}
         minVolume={config.minVolume}
+        audioDeviceId={config.audioDeviceId}
         onPermissionError={() => {
           setMicError(true)
           setIsListening(false)
