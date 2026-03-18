@@ -17,7 +17,7 @@ function findLoopPosition(chordHistory, progression) {
   return progression.indexOf(last)
 }
 
-export default function ProgressionBanner({ chordHistory, keyInfo, detectedProgression, currentChord }) {
+export default function ProgressionBanner({ chordHistory, keyInfo, detectedProgression, currentChord, onChordClick }) {
   const { root, mode, confidence } = keyInfo ?? {}
 
   const visible = chordHistory.slice(-HISTORY_SHOWN)
@@ -75,10 +75,11 @@ export default function ProgressionBanner({ chordHistory, keyInfo, detectedProgr
                     key={i}
                     ref={isCurrent ? currentRef : null}
                     style={{ opacity }}
-                    className={`flex flex-col items-center shrink-0 px-2 py-1 rounded-xl transition-colors duration-200 ${
+                    onClick={() => onChordClick?.(chord)}
+                    className={`flex flex-col items-center shrink-0 px-2 py-1 rounded-xl transition-colors duration-200 cursor-pointer ${
                       isCurrent
-                        ? 'bg-accent/10 border border-accent/40 ring-1 ring-accent/20'
-                        : 'border border-transparent'
+                        ? 'bg-accent/10 border border-accent/40 ring-1 ring-accent/20 hover:bg-accent/20'
+                        : 'border border-transparent hover:border-border hover:bg-panel'
                     }`}
                   >
                     <span className={`font-black leading-none tracking-tight ${
@@ -108,10 +109,11 @@ export default function ProgressionBanner({ chordHistory, keyInfo, detectedProgr
               return (
                 <div
                   key={i}
-                  className={`flex flex-col items-center px-2 py-0.5 rounded-lg border transition-all duration-200 ${
+                  onClick={() => onChordClick?.(chord)}
+                  className={`flex flex-col items-center px-2 py-0.5 rounded-lg border transition-all duration-200 cursor-pointer ${
                     isActive
-                      ? 'bg-accent/20 border-accent shadow-[0_0_10px_rgba(168,85,247,0.3)]'
-                      : 'bg-border border-border'
+                      ? 'bg-accent/20 border-accent shadow-[0_0_10px_rgba(168,85,247,0.3)] hover:bg-accent/30'
+                      : 'bg-border border-border hover:border-gray-500'
                   }`}
                 >
                   <span className={`text-sm font-bold leading-none ${isActive ? 'text-accent' : 'text-gray-300'}`}>
@@ -132,11 +134,16 @@ export default function ProgressionBanner({ chordHistory, keyInfo, detectedProgr
       {/* ── Right: big chord ── */}
       <div className="hidden lg:flex w-[30%] flex-col items-center justify-center gap-1">
         {current ? (
-          <>
+          <button
+            onClick={() => onChordClick?.(current)}
+            className="flex flex-col items-center gap-1 px-4 py-2 rounded-xl hover:bg-accent/10 transition-colors group"
+            title="Click to see voicings"
+          >
             <p className="text-xs text-gray-600 uppercase tracking-widest">Now Playing</p>
-            <div className="text-6xl font-black text-amber-400 leading-none">{current}</div>
+            <div className="text-6xl font-black text-amber-400 leading-none group-hover:text-accent transition-colors">{current}</div>
             <div className="text-sm text-gray-500">{currentRN}</div>
-          </>
+            <p className="text-[10px] text-gray-700 group-hover:text-gray-500 transition-colors">tap for voicings</p>
+          </button>
         ) : (
           <p className="text-gray-600 text-xs text-center">Play a chord</p>
         )}

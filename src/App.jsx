@@ -10,6 +10,9 @@ import Settings from './components/Settings'
 import DebugView from './components/DebugView'
 import DrumView from './components/DrumView'
 import { NOTES, detectKey, detectTopKeys, matchChordFromChroma, detectRepeatingProgression, getChordTones, getChordCandidates, getNoteHistoryAnalysis } from './lib/theory'
+import ChordDetailModal from './components/ChordDetailModal'
+import ExplorePanel from './components/ExplorePanel'
+import CurrentJamPanel from './components/CurrentJamPanel'
 import settingIcon from './assets/setting-icon.png'
 
 const DEFAULTS = {
@@ -92,6 +95,7 @@ export default function App() {
   // ── Chord state ───────────────────────────────────────────────────────────────
   const [chordHistory, setChordHistory]               = useState([])
   const [detectedProgression, setDetectedProgression] = useState(null)
+  const [selectedChord, setSelectedChord]             = useState(null)
 
   // ── Top key candidates (shown as quick-lock chips) ────────────────────────────
   const [topKeyCandidates, setTopKeyCandidates] = useState([])
@@ -530,12 +534,16 @@ export default function App() {
         </div>
       )}
 
+      {/* ── Chord detail modal ── */}
+      <ChordDetailModal chord={selectedChord} onClose={() => setSelectedChord(null)} keyInfo={effectiveKey} chordHistory={chordHistory} />
+
       {/* ── Progression banner ── */}
       <ProgressionBanner
         chordHistory={chordHistory}
         keyInfo={effectiveKey}
         detectedProgression={detectedProgression}
         currentChord={currentChord}
+        onChordClick={setSelectedChord}
       />
 
       {/* ── Instrument + progressions row ── */}
@@ -552,6 +560,21 @@ export default function App() {
           </div>
         </div>
       </div>
+
+      {/* ── Explore any chord — collapsible ── */}
+      <ExplorePanel
+        keyInfo={effectiveKey}
+        chordHistory={chordHistory}
+        onChordClick={setSelectedChord}
+      />
+
+      {/* ── Current jam — collapsible ── */}
+      <CurrentJamPanel
+        keyInfo={effectiveKey}
+        chordHistory={chordHistory}
+        detectedProgression={detectedProgression}
+        onChordClick={setSelectedChord}
+      />
 
       {/* ── Behind the scenes — collapsible ── */}
       <div className="mb-3 bg-panel border border-border rounded-xl overflow-hidden">
