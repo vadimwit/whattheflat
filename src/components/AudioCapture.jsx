@@ -81,7 +81,7 @@ function detectBassPC(freqData, sampleRate, fftSize) {
   return ((bestMidi % 12) + 12) % 12
 }
 
-export default function AudioCapture({ onNote, onChroma, onOnset, onWaveform, isListening, minClarity = 0.80, minVolume = 0.01, onPermissionError, audioDeviceId = null }) {
+export default function AudioCapture({ onNote, onChroma, onOnset, onWaveform, isListening, minClarity = 0.80, minVolume = 0.01, onPermissionError, audioDeviceId = null, onStreamReady = null }) {
   const audioCtxRef   = useRef(null)
   const timeBufRef    = useRef(null)
   const freqBufRef    = useRef(null)
@@ -96,6 +96,7 @@ export default function AudioCapture({ onNote, onChroma, onOnset, onWaveform, is
   const onOnsetRef           = useRef(onOnset)
   const onWaveformRef        = useRef(onWaveform)
   const onPermissionErrorRef = useRef(onPermissionError)
+  const onStreamReadyRef     = useRef(onStreamReady)
   const minClarityRef        = useRef(minClarity)
   const minVolumeRef         = useRef(minVolume)
   const smoothRmsRef         = useRef(0)
@@ -106,6 +107,7 @@ export default function AudioCapture({ onNote, onChroma, onOnset, onWaveform, is
   useEffect(() => { onOnsetRef.current           = onOnset           }, [onOnset])
   useEffect(() => { onWaveformRef.current        = onWaveform        }, [onWaveform])
   useEffect(() => { onPermissionErrorRef.current = onPermissionError }, [onPermissionError])
+  useEffect(() => { onStreamReadyRef.current     = onStreamReady     }, [onStreamReady])
   useEffect(() => { minClarityRef.current        = minClarity        }, [minClarity])
   useEffect(() => { minVolumeRef.current         = minVolume         }, [minVolume])
 
@@ -154,6 +156,7 @@ export default function AudioCapture({ onNote, onChroma, onOnset, onWaveform, is
     }
     streamRef.current  = stream
     activeRef.current  = true
+    onStreamReadyRef.current?.(stream)
     smoothRmsRef.current  = 0
     lastOnsetRef.current  = 0
 

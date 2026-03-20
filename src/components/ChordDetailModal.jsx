@@ -3,7 +3,7 @@ import ChordBox from './ChordBox'
 import MiniPiano from './MiniPiano'
 import { getGuitarVoicings, getPianoTechniques, parseChord } from '../lib/voicings'
 import { CHORD_TYPES, NOTES, getChordsInKey, toRomanNumeral, getSuggestedProgressions } from '../lib/theory'
-import { FAMOUS_PROGRESSIONS, progressionInKey, parseChord as parseChordEd } from '../lib/education'
+import { FAMOUS_PROGRESSIONS, progressionInKey, getChordSubstitutions, CHORD_PLAYBOOK } from '../lib/education'
 
 const CHORD_SUFFIX_OPTIONS = [
   { key: 'maj',      label: 'Major' },
@@ -300,6 +300,324 @@ function ProgressionsSubTab({ chordName, onChordClick }) {
   )
 }
 
+// ─── Theory tab ───────────────────────────────────────────────────────────────
+
+const CHORD_THEORY = {
+  maj: {
+    name: 'Major',
+    formula: 'Root  +  Major 3rd (4 semitones)  +  Perfect 5th (7 semitones)',
+    vibe: 'Bright, happy, resolved. The most "complete" sound in Western music.',
+    beginner: 'Major chords are the foundation of almost every song you know. They feel stable and uplifting — like a musical full stop.',
+    tension: 'Low — very stable',
+    color: 'text-yellow-400',
+  },
+  min: {
+    name: 'Minor',
+    formula: 'Root  +  Minor 3rd (3 semitones)  +  Perfect 5th (7 semitones)',
+    vibe: 'Dark, melancholic, introspective. The 3rd is lowered by just one semitone — that one note changes everything.',
+    beginner: 'One note separates major from minor. Minor chords carry emotion and depth — sadness, mystery, tension.',
+    tension: 'Low-medium — stable but moody',
+    color: 'text-blue-400',
+  },
+  dom7: {
+    name: 'Dominant 7th',
+    formula: 'Major triad  +  Minor 7th (10 semitones)',
+    vibe: 'Tense, bluesy, urgent. Wants desperately to resolve to a chord a 5th lower.',
+    beginner: 'The 7th chord is the engine of blues and jazz. It creates tension that begs to resolve — like holding your breath. Play G7 then C to feel it.',
+    tension: 'High — strongly pulls to resolution',
+    color: 'text-red-400',
+  },
+  maj7: {
+    name: 'Major 7th',
+    formula: 'Major triad  +  Major 7th (11 semitones)',
+    vibe: 'Dreamy, lush, sophisticated. Jazz-infused warmth without the tension of a dominant 7th.',
+    beginner: 'The major 7th is the note just below the octave. Adding it to a major chord gives you that smooth jazz-bossa nova sound — think "Autumn Leaves".',
+    tension: 'Very low — ethereal and floating',
+    color: 'text-purple-400',
+  },
+  min7: {
+    name: 'Minor 7th',
+    formula: 'Minor triad  +  Minor 7th (10 semitones)',
+    vibe: 'Smooth, soulful, relaxed. Darker than major 7th but less tense than a dominant 7th.',
+    beginner: 'Minor 7ths are everywhere in soul, R&B, and jazz. They\'re minor chords with added warmth — moody but not harsh.',
+    tension: 'Low-medium — smooth and flowing',
+    color: 'text-indigo-400',
+  },
+  dim: {
+    name: 'Diminished',
+    formula: 'Root  +  Minor 3rd (3 semitones)  +  Diminished 5th (6 semitones)',
+    vibe: 'Dark, tense, unstable. The flattened 5th creates a tritone interval — historically called "diabolus in musica" (the devil in music).',
+    beginner: 'Diminished chords are passing chords — they create maximum tension so the next chord feels like a huge relief. Like a musical cliffhanger.',
+    tension: 'Very high — wants to resolve immediately',
+    color: 'text-orange-400',
+  },
+  dim7: {
+    name: 'Diminished 7th',
+    formula: 'Diminished triad  +  Diminished 7th (9 semitones) — fully symmetric, all minor 3rds',
+    vibe: 'Extremely tense and dramatic. Used in horror film scores and dramatic classical passages.',
+    beginner: 'All four notes are equally spaced (all minor 3rds apart), making it the most symmetrical and unstable chord. Classic "villain arrives" sound.',
+    tension: 'Extreme — maximum instability',
+    color: 'text-red-600',
+  },
+  half_dim: {
+    name: 'Half-Diminished (m7♭5)',
+    formula: 'Diminished triad  +  Minor 7th (10 semitones)',
+    vibe: 'Dark and tense but with slightly more resolution than full dim7. The "ii" chord in minor ii–V–i jazz progressions.',
+    beginner: 'Half-diminished sits between a minor 7th and a fully diminished chord. It\'s the moody jazz workhorse — think the intro to "Autumn Leaves".',
+    tension: 'High — tense but musical',
+    color: 'text-orange-500',
+  },
+  aug: {
+    name: 'Augmented',
+    formula: 'Root  +  Major 3rd (4 semitones)  +  Augmented 5th (8 semitones) — all major 3rds',
+    vibe: 'Eerie, floating, dreamlike. The raised 5th creates instability that can resolve either up or down.',
+    beginner: 'Augmented chords sound like something is about to happen. They\'re often used as a passing chord between major and minor — the 5th feels like it\'s "reaching" upward.',
+    tension: 'High — ambiguous direction',
+    color: 'text-emerald-400',
+  },
+  sus4: {
+    name: 'Suspended 4th',
+    formula: 'Root  +  Perfect 4th (5 semitones)  +  Perfect 5th (7 semitones)',
+    vibe: 'Open, unresolved, expectant. The 3rd is replaced by a 4th — neither major nor minor, just floating.',
+    beginner: '"Sus" means suspended — the 3rd is suspended in mid-air. It wants to drop down to a major or minor chord. Classic rock move: sus4 → major.',
+    tension: 'Medium — pleasant tension, easy on the ear',
+    color: 'text-cyan-400',
+  },
+  sus2: {
+    name: 'Suspended 2nd',
+    formula: 'Root  +  Major 2nd (2 semitones)  +  Perfect 5th (7 semitones)',
+    vibe: 'Airy, spacious, ambiguous. Like sus4 but lighter — the 2nd sits high above the root.',
+    beginner: 'Sus2 is a favourite of modern pop and ambient music. Without a 3rd, it has no major/minor quality — it just floats. Think Sting, U2, Coldplay.',
+    tension: 'Low-medium — open and spacious',
+    color: 'text-teal-400',
+  },
+  maj6: {
+    name: 'Major 6th',
+    formula: 'Major triad  +  Major 6th (9 semitones)',
+    vibe: 'Sweet, vintage, nostalgic. The 6th adds a note from the scale without the tension of a 7th.',
+    beginner: "The 6th is a colour tone that sweetens a major chord. Common in jazz, bossa nova, and 50s pop — \"Misty\" and \"Fly Me To The Moon\" territory.",
+    tension: 'Very low — sweeter than major triad',
+    color: 'text-amber-300',
+  },
+  min6: {
+    name: 'Minor 6th',
+    formula: 'Minor triad  +  Major 6th (9 semitones)',
+    vibe: 'Bittersweet, exotic, dramatic. A major 6th over a minor chord creates a striking contrast.',
+    beginner: 'Minor 6ths have a flamenco/tango feel. The bright 6th sitting on top of a dark minor chord creates a sophisticated tension — think Django Reinhardt.',
+    tension: 'Medium — intriguing contrast',
+    color: 'text-amber-400',
+  },
+  add9: {
+    name: 'Add 9',
+    formula: 'Major triad  +  Major 9th (14 semitones = octave + 2)',
+    vibe: 'Open, modern, slightly epic. The 9th adds colour without the smoothness of a 7th.',
+    beginner: 'Add9 is the chord of modern rock and pop. Unlike maj9 (which also has a 7th), add9 keeps things clean and direct. Coldplay, Radiohead, and U2 love it.',
+    tension: 'Very low — bright and open',
+    color: 'text-lime-400',
+  },
+}
+
+const INTERVAL_NAMES = {
+  0: 'Root', 2: 'Major 2nd', 3: 'Minor 3rd', 4: 'Major 3rd',
+  5: 'Perfect 4th', 6: 'Tritone (♭5)', 7: 'Perfect 5th',
+  8: 'Aug 5th', 9: 'Major 6th', 10: 'Minor 7th', 11: 'Major 7th',
+  14: 'Major 9th',
+}
+
+function TheoryTab({ chordName }) {
+  const parsed = parseChord(chordName)
+  if (!parsed) return <p className="text-gray-500 text-sm text-center py-8">Could not parse chord.</p>
+
+  const { rootPc, type } = parsed
+  const typeInfo = CHORD_TYPES[type]
+  const theory = CHORD_THEORY[type]
+  const subs = getChordSubstitutions(chordName)
+
+  // Actual note names
+  const noteNames = (typeInfo?.intervals ?? []).map(iv => NOTES[(rootPc + iv) % 12])
+
+  // Roles this chord can play
+  const ROLES = []
+  for (let keyPc = 0; keyPc < 12; keyPc++) {
+    for (const mode of ['major', 'minor']) {
+      const diatonicChords = getChordsInKey(NOTES[keyPc], mode)
+      const idx = diatonicChords.indexOf(chordName)
+      if (idx !== -1) {
+        const rn = toRomanNumeral(chordName, NOTES[keyPc], mode)
+        ROLES.push({ keyRoot: NOTES[keyPc], mode, rn })
+      }
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-5">
+
+      {/* ── What is this chord? ── */}
+      <div className="p-4 bg-surface border border-border rounded-xl">
+        <div className="flex items-baseline gap-3 mb-3">
+          <span className={`text-lg font-black ${theory?.color ?? 'text-accent'}`}>{chordName}</span>
+          <span className="text-sm text-gray-400">{theory?.name ?? type}</span>
+        </div>
+        {theory && (
+          <>
+            <p className="text-sm text-gray-200 leading-relaxed mb-2">{theory.beginner}</p>
+            <p className="text-xs text-gray-500 italic leading-relaxed">{theory.vibe}</p>
+          </>
+        )}
+      </div>
+
+      {/* ── Notes & Formula ── */}
+      <div className="p-4 bg-surface border border-border rounded-xl">
+        <p className="text-[11px] uppercase tracking-wider text-gray-600 mb-3">Notes in this chord</p>
+        <div className="flex flex-wrap gap-2 mb-3">
+          {(typeInfo?.intervals ?? []).map((iv, i) => (
+            <div key={i} className={`flex flex-col items-center px-3 py-2 rounded-xl border ${
+              i === 0 ? 'bg-accent/20 border-accent text-accent' : 'bg-panel border-border text-gray-300'
+            }`}>
+              <span className="text-base font-black">{noteNames[i]}</span>
+              <span className="text-[10px] text-gray-500 leading-none mt-0.5">{INTERVAL_NAMES[iv] ?? `+${iv}`}</span>
+            </div>
+          ))}
+        </div>
+        {theory && (
+          <div className="text-xs text-gray-600 font-mono bg-panel/50 rounded-lg px-3 py-2 border border-border">
+            {theory.formula}
+          </div>
+        )}
+        {theory && (
+          <div className="flex items-center gap-2 mt-2">
+            <span className="text-[10px] uppercase tracking-wider text-gray-600">Tension:</span>
+            <span className="text-xs text-gray-400">{theory.tension}</span>
+          </div>
+        )}
+      </div>
+
+      {/* ── Chord substitutions ── */}
+      {subs.length > 0 && (
+        <div>
+          <p className="text-[11px] uppercase tracking-wider text-gray-600 mb-3">Colour swaps — try these instead</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {subs.map((sub, i) => (
+              <div key={i} className="flex items-start gap-3 p-3 bg-surface border border-border rounded-xl hover:border-accent/30 transition-colors">
+                <span className="text-sm font-black text-accent shrink-0 w-16">{sub.chord}</span>
+                <p className="text-xs text-gray-400 leading-snug">{sub.tip}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Keys this chord belongs to ── */}
+      {ROLES.length > 0 && (
+        <div>
+          <p className="text-[11px] uppercase tracking-wider text-gray-600 mb-3">{chordName} appears in these keys</p>
+          <div className="flex flex-wrap gap-2">
+            {ROLES.slice(0, 10).map(({ keyRoot, mode, rn }) => (
+              <div key={`${keyRoot}-${mode}`}
+                className="px-3 py-2 bg-surface border border-border rounded-xl text-xs flex items-center gap-2">
+                <span className="font-bold text-white">{keyRoot}</span>
+                <span className="text-gray-500 capitalize">{mode}</span>
+                <span className="text-amber-400 font-bold">{rn}</span>
+              </div>
+            ))}
+          </div>
+          <p className="text-[11px] text-gray-700 mt-2">
+            Roman numerals show the chord's role: I/i = home, IV = subdominant, V = dominant tension, vi/♭VI = relative minor/major, etc.
+          </p>
+        </div>
+      )}
+
+    </div>
+  )
+}
+
+// ─── Learn tab ────────────────────────────────────────────────────────────────
+
+function LearnTab({ chordName }) {
+  const parsed = parseChord(chordName)
+  const playbook = parsed ? CHORD_PLAYBOOK[parsed.type] : null
+
+  if (!playbook) {
+    return <p className="text-gray-500 text-sm text-center py-8">No jam content for {chordName} yet.</p>
+  }
+
+  return (
+    <div className="flex flex-col gap-5">
+
+      {/* ── Jam role ── */}
+      <div className="px-4 py-3 bg-accent/10 border border-accent/20 rounded-xl">
+        <p className="text-[10px] uppercase tracking-wider text-accent/60 mb-1">Your role in the jam</p>
+        <p className="text-sm text-white leading-relaxed">{playbook.jamRole}</p>
+      </div>
+
+      {/* ── Voicings for jamming ── */}
+      <div>
+        <p className="text-[11px] uppercase tracking-wider text-gray-600 mb-2">Voicings — when to use which</p>
+        <div className="flex flex-col gap-2">
+          {playbook.voicings.map((v, i) => (
+            <div key={i} className="flex gap-3 p-3 bg-surface border border-border rounded-xl hover:border-accent/20 transition-colors">
+              <span className="text-accent font-black text-lg shrink-0 leading-none mt-0.5">{i + 1}</span>
+              <div>
+                <p className="text-xs font-bold text-white mb-0.5">{v.name}</p>
+                <p className="text-xs text-gray-400 leading-relaxed">{v.use}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+        <p className="text-[10px] text-gray-700 mt-2">See the Guitar tab for the actual fingerings of each shape.</p>
+      </div>
+
+      {/* ── Licks & fills ── */}
+      <div>
+        <p className="text-[11px] uppercase tracking-wider text-gray-600 mb-2">Licks &amp; fills</p>
+        <div className="flex flex-col gap-3">
+          {playbook.licks.map((l, i) => (
+            <div key={i} className="p-4 bg-surface border border-border rounded-xl hover:border-accent/30 transition-colors">
+              <div className="flex items-center gap-2 mb-2 flex-wrap">
+                <p className="text-sm font-bold text-white">{l.title}</p>
+                <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-accent/10 border border-accent/20 text-accent">{l.style}</span>
+              </div>
+              <pre className="text-[10px] font-mono text-accent/70 bg-black/40 border border-border rounded-lg px-3 py-2 overflow-x-auto leading-relaxed whitespace-pre mb-2">{l.tab}</pre>
+              <p className="text-xs text-amber-400/80">
+                <span className="font-semibold text-amber-400">Key insight: </span>{l.tip}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Jam tips ── */}
+      <div>
+        <p className="text-[11px] uppercase tracking-wider text-gray-600 mb-2">Jam tips</p>
+        <div className="flex flex-col gap-2">
+          {playbook.jamTips.map((tip, i) => (
+            <div key={i} className="flex gap-2.5 text-xs text-gray-300 leading-relaxed p-2.5 rounded-lg bg-surface border border-border">
+              <span className="text-accent shrink-0 font-bold mt-0.5">→</span>
+              <p>{tip}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Loop station practice ── */}
+      {playbook.loopPractice?.length > 0 && (
+        <div>
+          <p className="text-[11px] uppercase tracking-wider text-gray-600 mb-2">Loop station practice</p>
+          <div className="flex flex-col gap-2">
+            {playbook.loopPractice.map((lp, i) => (
+              <div key={i} className="p-3 bg-surface border border-border rounded-xl border-l-2 border-l-accent/40">
+                <p className="text-xs font-bold text-white mb-1">🔁 {lp.title}</p>
+                <p className="text-xs text-gray-400 leading-relaxed">{lp.body}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+    </div>
+  )
+}
+
 // ─── Explore tab ──────────────────────────────────────────────────────────────
 function ExploreTab({ initialChord, keyInfo, chordHistory }) {
   const parsed = parseChord(initialChord)
@@ -372,9 +690,8 @@ function ExploreTab({ initialChord, keyInfo, chordHistory }) {
       {/* ── Sub-tabs ── */}
       <div className="flex gap-1 bg-surface border border-border rounded-xl p-1 overflow-x-auto">
         {[
-          { key: 'guitar',       label: '🎸 Guitar' },
-          { key: 'piano',        label: '🎹 Piano' },
-          { key: 'progressions', label: '🎵 Progressions' },
+          { key: 'guitar', label: '🎸 Guitar' },
+          { key: 'piano',  label: '🎹 Piano'  },
         ].map(t => (
           <button key={t.key}
             onClick={() => setSubTab(t.key)}
@@ -386,16 +703,15 @@ function ExploreTab({ initialChord, keyInfo, chordHistory }) {
         ))}
       </div>
 
-      {subTab === 'guitar'       && <GuitarTab chordName={chordName} />}
-      {subTab === 'piano'        && <PianoTab  chordName={chordName} />}
-      {subTab === 'progressions' && <ProgressionsSubTab chordName={chordName} onChordClick={c => selectChord(c)} />}
+      {subTab === 'guitar' && <GuitarTab chordName={chordName} />}
+      {subTab === 'piano'  && <PianoTab  chordName={chordName} />}
     </div>
   )
 }
 
 // ─── Main modal ───────────────────────────────────────────────────────────────
 
-export default function ChordDetailModal({ chord, onClose, keyInfo, chordHistory }) {
+export default function ChordDetailModal({ chord, onClose, onChordClick, keyInfo, chordHistory }) {
   const [tab, setTab] = useState('guitar')
 
   // Reset tab when chord changes
@@ -436,15 +752,18 @@ export default function ChordDetailModal({ chord, onClose, keyInfo, chordHistory
         </div>
 
         {/* Tab bar */}
-        <div className="flex gap-1 px-6 pt-4">
+        <div className="flex gap-1 px-6 pt-4 overflow-x-auto">
           {[
-            { key: 'guitar',  label: '🎸 Guitar Voicings' },
-            { key: 'piano',   label: '🎹 Piano Techniques' },
-            { key: 'explore', label: '🔍 Explore Any Chord' },
+            { key: 'guitar',       label: '🎸 Guitar'       },
+            { key: 'piano',        label: '🎹 Piano'         },
+            { key: 'theory',       label: '📚 Theory'        },
+            { key: 'learn',        label: '🎓 Learn'         },
+            { key: 'progressions', label: '🎵 Progressions'  },
+            { key: 'explore',      label: '🔍 Explore'       },
           ].map(t => (
             <button key={t.key}
               onClick={() => setTab(t.key)}
-              className={`px-4 py-2 rounded-t-xl text-sm font-semibold transition-all border-b-2 ${
+              className={`px-4 py-2 rounded-t-xl text-sm font-semibold transition-all border-b-2 whitespace-nowrap ${
                 tab === t.key
                   ? 'text-accent border-accent bg-accent/10'
                   : 'text-gray-500 border-transparent hover:text-gray-300'
@@ -456,9 +775,12 @@ export default function ChordDetailModal({ chord, onClose, keyInfo, chordHistory
 
         {/* Content */}
         <div className="px-6 py-5">
-          {tab === 'guitar'  && <GuitarTab chordName={chord} />}
-          {tab === 'piano'   && <PianoTab  chordName={chord} />}
-          {tab === 'explore' && <ExploreTab initialChord={chord} keyInfo={keyInfo} chordHistory={chordHistory} />}
+          {tab === 'guitar'       && <GuitarTab           chordName={chord} />}
+          {tab === 'piano'        && <PianoTab             chordName={chord} />}
+          {tab === 'theory'       && <TheoryTab            chordName={chord} />}
+          {tab === 'learn'        && <LearnTab             chordName={chord} />}
+          {tab === 'progressions' && <ProgressionsSubTab   chordName={chord} onChordClick={c => { onChordClick?.(c) }} />}
+          {tab === 'explore'      && <ExploreTab initialChord={chord} keyInfo={keyInfo} chordHistory={chordHistory} />}
         </div>
 
       </div>
